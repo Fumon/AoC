@@ -1,56 +1,58 @@
-use support::{FileSystem, Directory};
+#![feature(iter_intersperse)]
+
+use filesystem::{FileSystem, Path, Size};
+
+use crate::filewalk::FileWalk;
 
 fn main() -> std::io::Result<()> {
-    let filesystem = FileSystem::load_from_dir_walk_file("./input")?;
+    let mut filesystem = FileSystem::from(FileWalk::from_file("./input"));
+    filesystem.set_capacity(70_000_000);
 
-    let combined_size = part_1(&filesystem);
+    let combined_size = part_1(&mut filesystem);
 
     println!("Combined size of candidate directories: {}", combined_size);
 
-    let directory_for_deletion = part_2(&filesystem, 30000000);
+    let directory_for_deletion = part_2(&mut filesystem, 30000000);
 
     println!("Directory for deltion {:?}", directory_for_deletion);
 
     Ok(())
 }
 
-fn part_1(filesystem: &FileSystem) -> u32 {
+fn part_1(filesystem: &mut FileSystem) -> u32 {
     // Sort and tally
     filesystem
-        .get_dirs()
+        .get_dir_sizes()
+        .unwrap()
         .iter()
-        .filter_map(|dir| {
-            if dir.size <= 100000 {
-                Some(dir.size)
+        .filter_map(|(_, size)| if *size <= 100_000 { Some(size) } else { None })
+        .sum()
+}
+
+fn part_2(filesystem: &mut FileSystem, needed: Size) -> (Path, Size) {
+    let target_to_free = compute_target_to_free(needed, filesystem.get_available_space());
+
+    println!("Target to free: {}", target_to_free);
+
+    let dirs = filesystem.get_dir_sizes().unwrap();
+    let mut candidates = dirs
+        .iter()
+        .filter_map(|(path, size)| {
+            if *size >= target_to_free {
+                Some((path.clone(), size.clone()))
             } else {
                 None
             }
         })
-        .sum()
-}
+        .collect::<Vec<(Path, Size)>>();
 
-fn part_2(filesystem: &FileSystem, needed: u32) -> Directory {
-    
-    let target_to_free =compute_target_to_free(needed,filesystem.find_available_space());
-
-    println!("Target to free: {}", target_to_free);
-
-    let dirs = filesystem.get_dirs();
-    let mut candidates = dirs.iter().filter_map(|dir| {
-        if dir.size >= target_to_free {
-            Some(dir)
-        } else {
-            None
-        }
-    }).collect::<Vec<&Directory>>();
-
-    candidates.sort_unstable_by_key(|dir| dir.size);
+    candidates.sort_unstable_by_key(|dir| dir.1);
 
     for ele in candidates.iter().enumerate() {
         println!("Candidate {: >3}: {:?}", ele.0, ele.1);
     }
-    
-    candidates.iter().nth(0).copied().unwrap().clone()
+
+    candidates.iter().nth(0).cloned().unwrap()
 }
 
 fn compute_target_to_free(needed: u32, available: u32) -> u32 {
@@ -59,10 +61,15 @@ fn compute_target_to_free(needed: u32, available: u32) -> u32 {
 
 #[cfg(test)]
 mod test {
-    use std::{io::{Cursor, BufRead}, path::PathBuf};
 
-    use crate::{support::FileSystem, part_1, part_2, compute_target_to_free};
+    use crate::{
+        compute_target_to_free,
+        filesystem::{FileSystem, Path, Size},
+        filewalk::FileWalk,
+        part_1, part_2,
+    };
 
+    const FILE_SYSTEM_CAPACITY: Size = 70_000_000;
     const EXAMPLE: &'static str = r"$ cd /
 $ ls
 dir a
@@ -86,248 +93,391 @@ $ ls
 8033020 d.log
 5626152 d.ext
 7214296 k";
-    
+
     #[test]
     fn part_1_test() {
-        let filesystem = load_example_filesystem();
+        let mut filesystem = load_example_filesystem();
 
-        let root = filesystem.get_dir(PathBuf::from("/")).unwrap();
+        let rootsize = filesystem.get_dir_size(Path::default()).unwrap();
 
-        assert_eq!(root.size, 48381165);
-        
-        assert_eq!(part_1(&filesystem), 95437);
+        assert_eq!(rootsize, 48381165);
+
+        assert_eq!(part_1(&mut filesystem), 95437);
     }
 
     #[test]
     fn part_2_test() {
-        let filesystem = load_example_filesystem();
+        let mut filesystem = load_example_filesystem();
 
         let needed = 30000000;
-        let available = filesystem.find_available_space();
+        let available = filesystem.get_available_space();
 
         assert_eq!(available, 21618835);
 
         let target_to_free = compute_target_to_free(needed, available);
         assert_eq!(target_to_free, 8381165);
 
-        let candidate = part_2(&filesystem, needed);
+        let candidate = part_2(&mut filesystem, needed);
 
-        assert_eq!(candidate.name, "d");
-        assert_eq!(candidate.size, 24933642)
+        assert_eq!(candidate.0.to_string(), "d".to_owned());
+        assert_eq!(candidate.1, 24933642)
     }
 
-    fn load_example_filesystem() -> FileSystem{
-        FileSystem::load_from_dir_walk(Cursor::new(EXAMPLE).lines().flatten()).unwrap()
+    fn load_example_filesystem() -> FileSystem {
+        let fw = FileWalk::from_string(EXAMPLE.into());
+        let mut fs = FileSystem::from(fw);
+        fs.set_capacity(FILE_SYSTEM_CAPACITY);
+        fs
     }
 }
 
-mod support {
+mod filesystem {
     use std::{
-        collections::HashMap,
-        fs::File,
-        io::{BufRead, BufReader},
-        path::{Path, PathBuf},
-        str::FromStr,
+        collections::{HashMap, HashSet},
+        iter::once,
+        ops::Add,
     };
 
-    #[derive(Debug, Default)]
+    use crate::filewalk::{ChangeDirArg, FileWalk, Listing, Step};
+
+    #[derive(Debug)]
+    pub(crate) struct FileSystemError {
+        kind: ErrorType,
+    }
+
+    #[derive(Debug)]
+    pub(crate) enum ErrorType {
+        DoesNotExist,
+        AlreadyExists,
+        ParentDirectoryDoesNotExist,
+    }
+
     pub(crate) struct FileSystem {
-        file_table: HashMap<PathBuf, Directory>,
+        capacity: Size,
+        dir_table: HashMap<Path, HashSet<FileTableEntry>>,
+        dir_sizes: HashMap<Path, Size>,
+        size_scuffed: bool,
+        used_space: Size,
+    }
+
+    impl Default for FileSystem {
+        fn default() -> Self {
+            // Root must exist
+            let mut starting_table: HashMap<Path, HashSet<FileTableEntry>> = Default::default();
+            starting_table.insert(Path::default(), Default::default());
+
+            Self {
+                capacity: Default::default(),
+                dir_table: starting_table,
+                dir_sizes: Default::default(),
+                size_scuffed: true,
+                used_space: Default::default(),
+            }
+        }
     }
 
     impl FileSystem {
-        pub(crate) const TOTAL_DISK_SPACE: u32 = 70000000;
+        pub(crate) fn new(capacity: Size) -> Self {
+            let mut me = Self::default();
+            me.capacity = capacity;
+            me
+        }
 
-        /// Looks up and updates the size of a directory returning the directory's new size
-        pub(crate) fn add_to_size_of_directory(
+        pub(crate) fn set_capacity(&mut self, cap: Size) {
+            self.capacity = cap;
+        }
+
+        pub(crate) fn insert_at_path(
             &mut self,
-            path: PathBuf,
-            size_increase: u32,
-        ) -> u32 {
-            let mut newsize: u32 = 0;
-            self.file_table.entry(path).and_modify(|dir| {
-                newsize = size_increase + dir.size;
-                dir.size = newsize;
-            });
+            path: Path,
+            entry: FileTableEntry,
+        ) -> Result<(), FileSystemError> {
+            // Find parent directory
+            let Some(parent_dir) = self.dir_table.get_mut(&path) else {
+                return Err(FileSystemError { kind: ErrorType::ParentDirectoryDoesNotExist });
+            };
 
-            newsize
-        }
+            // Insert entry into parent's child listing
+            if !parent_dir.insert(entry.clone()) {
+                return Err(FileSystemError {
+                    kind: ErrorType::AlreadyExists,
+                });
+            }
+            self.size_scuffed = true;
 
-        pub(crate) fn insert(&mut self, d: Directory) {
-            let mut binding = d.parent.clone();
-            let newpath = binding.get_or_insert(PathBuf::new());
-            newpath.push(d.name.clone());
-
-            self.file_table.insert(newpath.to_owned(), d);
-        }
-
-        pub(crate) fn find_available_space(&self) -> u32{
-            Self::TOTAL_DISK_SPACE - self.get_dir(PathBuf::from("/")).unwrap().size
-        }
-
-        pub(crate) fn get_dirs(&self) -> Vec<Directory> {
-            self.file_table
-                .iter()
-                .map(|(_, dir)| dir)
-                .cloned()
-                .collect()
-        }
-
-        pub(crate) fn get_dir(&self, p: PathBuf) -> Option<&Directory> {
-            self.file_table.get(&p)
-        }
-
-        pub(crate) fn load_from_dir_walk(i: impl Iterator<Item = String>) -> std::io::Result<Self> {
-            let mut p_line_iter = i.peekable();
-
-            let mut dirs: FileSystem = Default::default();
-            let mut current_path: Option<PathBuf> = None;
-            let mut current_dir_size: u32 = 0;
-            loop {
-                // Parse Command
-                let Some(cline) = p_line_iter.next() else {
-                    // Add to parents
-                    while current_path.as_mut().map(|x| x.pop()).unwrap() {
-                        dirs.add_to_size_of_directory(current_path.clone().unwrap(), current_dir_size);
-                    }
-
-                    break;
-                };
-
-                let command = match cline.parse::<Command>() {
-                    Ok(command) => command,
-                    Err(e) => panic!("Error parsing command: {}", e),
-                };
-
-                match command {
-                    Command::CD(CDArg::Parent) => {
-                        // Pop up
-                        // Add to the directory's total
-                        current_path
-                            .as_mut()
-                            .map(|x| x.pop())
-                            .expect("Only pop if not beyond root");
-
-                        // Update sizes
-                        current_dir_size = dirs.add_to_size_of_directory(
-                            current_path.clone().unwrap(),
-                            current_dir_size,
-                        );
-                    }
-                    Command::CD(CDArg::Name(name)) => {
-                        // Descend
-                        let p = current_path.clone();
-                        current_path
-                            .get_or_insert(PathBuf::new())
-                            .push(name.clone());
-
-                        dirs.insert(Directory {
-                            parent: p,
-                            name,
-                            size: 0,
-                        });
-
-                        current_dir_size = 0;
-                    }
-                    Command::LS => {
-                        // Consume until next command
-                        while let Some(ls_line) =
-                            p_line_iter.next_if(|line| line.chars().nth(0) != Some('$'))
-                        {
-                            let listing = match ls_line.parse::<Listing>() {
-                                Ok(listing) => listing,
-                                Err(e) => panic!("Error parsing listing: {}", e),
-                            };
-
-                            if let Listing::File(size, _) = listing {
-                                current_dir_size += size;
-                            }
-                        }
-
-                        // Update this directory
-                        dirs.add_to_size_of_directory(
-                            current_path.clone().unwrap(),
-                            current_dir_size,
-                        );
-                    }
+            if let FileTableEntry::Directory(name) = entry {
+                // Insert a new directory entry into the table
+                let new_path = &path + name;
+                let None = self.dir_table.insert(new_path, Default::default()) else {
+                    return Err(FileSystemError { kind: ErrorType::AlreadyExists })
                 };
             }
-            Ok(dirs)
+
+            Ok(())
         }
 
-        pub(crate) fn load_from_dir_walk_file<P: AsRef<Path>>(
-            file_name: P,
-        ) -> std::io::Result<Self> {
-            let line_iter = BufReader::new(File::open(file_name)?)
-                .lines()
-                .flatten();
-            Self::load_from_dir_walk(line_iter)
+        fn get_dir_contents(&self, path: Path) -> Option<&HashSet<FileTableEntry>> {
+            self.dir_table.get(&path)
+        }
+
+        pub(crate) fn get_dir_size(&mut self, path: Path) -> Result<Size, FileSystemError> {
+            if let Some(size) = self.dir_sizes.get(&path) {
+                return Ok(size.clone());
+            } else {
+                // Otherwise get contents and recurse on directories
+                let mut new_size = 0;
+
+                // Get contents
+                let contents: Vec<FileTableEntry> = {
+                    if let Some(contents_cpy) = self.get_dir_contents(path.clone()) {
+                        contents_cpy.iter().cloned().collect()
+                    } else {
+                        return Err(FileSystemError {
+                            kind: ErrorType::DoesNotExist,
+                        });
+                    }
+                };
+
+                // Iterate
+                for entry in contents.iter() {
+                    new_size += match entry {
+                        FileTableEntry::Directory(childname) => {
+                            self.get_dir_size(&path + childname.clone())?
+                        }
+                        FileTableEntry::File(_, filesize) => filesize.clone(),
+                    }
+                }
+
+                // Set size
+                self.dir_sizes.insert(path.clone(), new_size.clone());
+
+                return Ok(new_size);
+            }
+        }
+
+        pub(crate) fn get_dir_sizes(&mut self) -> Result<HashMap<Path, Size>, FileSystemError> {
+            if self.dir_sizes.len() == 0 || self.size_scuffed {
+                self.get_dir_size(Default::default())?;
+                self.size_scuffed = false;
+            }
+
+            Ok(self.dir_sizes.clone())
+        }
+
+        pub(crate) fn get_available_space(&mut self) -> Size {
+            self.capacity - self.get_dir_size(Default::default()).unwrap()
         }
     }
 
-    #[derive(Debug, Clone)]
-    pub(crate) struct Directory {
-        pub(crate) parent: Option<PathBuf>,
-        pub(crate) name: String,
-        pub(crate) size: u32,
+    impl From<FileWalk> for FileSystem {
+        fn from(fw: FileWalk) -> Self {
+            let mut p = Path::default();
+            let mut fs = FileSystem::default();
+
+            for step in fw {
+                match step {
+                    Step::ChangeDir(ChangeDirArg::Root) => continue,
+                    Step::ChangeDir(ChangeDirArg::Parent) => p = p.pop().unwrap(),
+                    Step::ChangeDir(ChangeDirArg::Child(dirname)) => p = p.push(dirname),
+                    Step::DirListing(dlist) => dlist
+                        .into_iter()
+                        .map(|l| FileTableEntry::from(l))
+                        .for_each(|entry| fs.insert_at_path(p.clone(), entry).unwrap()),
+                }
+            }
+            fs
+        }
     }
 
-    // pub(crate) struct File {
-    //     pub(crate) parent: PathBuf,
-    //     pub(crate) name: String,
-    //     pub(crate) size: u32,
-    // }
+    pub(crate) type Name = String;
+    pub(crate) type Size = u32;
 
-    pub(crate) enum Command {
-        LS,
-        CD(CDArg),
+    #[derive(Debug, Hash, PartialEq, Eq, Clone)]
+    pub(crate) enum FileTableEntry {
+        Directory(Name),
+        File(Name, Size),
     }
 
-    impl FromStr for Command {
+    impl From<Listing> for FileTableEntry {
+        fn from(value: Listing) -> Self {
+            match value {
+                Listing::Directory(name) => Self::Directory(name),
+                Listing::File(size, name) => Self::File(name, size),
+            }
+        }
+    }
+
+    // Directories will have an associated list of contents
+    //     Store this internally? Or store a reference to the list?
+    // Files have sizes
+    // Directories have sizes comprised of the files within and all directories within
+
+    /// A zero length components vec is equivalent to the root directory
+    #[derive(Debug, Hash, PartialEq, Eq, Default, Clone)]
+    pub(crate) struct Path {
+        components: Vec<String>,
+    }
+
+    impl Path {
+        fn push(&self, c: String) -> Path {
+            Path {
+                components: self.components.iter().cloned().chain(once(c)).collect(),
+            }
+        }
+        fn pop(&self) -> Option<Path> {
+            if self.components.len() == 0 {
+                None
+            } else {
+                Some(Path {
+                    components: self
+                        .components
+                        .iter()
+                        .cloned()
+                        .take(self.components.len() - 1)
+                        .collect(),
+                })
+            }
+        }
+    }
+
+    impl Add<String> for &Path {
+        type Output = Path;
+
+        fn add(self, rhs: String) -> Self::Output {
+            self.push(rhs)
+        }
+    }
+
+    impl ToString for Path {
+        fn to_string(&self) -> String {
+            self.components
+                .iter()
+                .cloned()
+                .intersperse("/".to_owned())
+                .collect()
+        }
+    }
+}
+
+mod filewalk {
+    use std::{
+        fs::File,
+        io::{BufRead, BufReader, Cursor},
+        iter::from_fn,
+        path::Path,
+        str::FromStr,
+    };
+
+    pub(crate) struct FileWalk(Vec<Step>);
+
+    impl FileWalk {
+        fn load_filewalk(input: &mut std::iter::Peekable<impl Iterator<Item = String>>) -> Self {
+            FileWalk(
+                from_fn(|| {
+                    let Some(command_line) = input.next() else {
+                    return None;
+                };
+
+                    let mut c = command_line.split_ascii_whitespace().skip(1);
+
+                    match (c.next(), c.next()) {
+                        (Some("cd"), Some(d)) => {
+                            Some(Step::ChangeDir(ChangeDirArg::from_str(d).unwrap()))
+                        }
+                        (Some("ls"), None) => {
+                            let listing_lines = from_fn(|| input.next_if(|v| !v.starts_with("$")));
+
+                            Some(Step::DirListing(DList::from_iter(listing_lines)))
+                        }
+                        (Some(z), _) => panic!("Invalid command {}", z),
+                        (None, _) => panic!("No command in command line"),
+                    }
+                })
+                .collect(),
+            )
+        }
+
+        pub(crate) fn from_file<P: AsRef<Path>>(file: P) -> Self {
+            Self::load_filewalk(
+                &mut BufReader::new(File::open(file).unwrap())
+                    .lines()
+                    .flatten()
+                    .peekable(),
+            )
+        }
+
+        pub(crate) fn from_string(input: String) -> Self {
+            let mut string_iter = Cursor::new(input).lines().flatten().peekable();
+            Self::load_filewalk(&mut string_iter)
+        }
+    }
+
+    impl IntoIterator for FileWalk {
+        type Item = Step;
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.0.into_iter()
+        }
+    }
+
+    pub(crate) enum Step {
+        ChangeDir(ChangeDirArg),
+        DirListing(DList),
+    }
+
+    pub(crate) enum ChangeDirArg {
+        Root,
+        Parent,
+        Child(String),
+    }
+
+    impl FromStr for ChangeDirArg {
         type Err = &'static str;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let mut b = s.split_ascii_whitespace();
-            let Some(s1) = b.next() else {
-                return Err("No input to parse");
-            };
-            if s1 != "$" {
-                return Err("Tried to parse a command which didn't start with $");
-            }
-
-            match (b.next(), b.next()) {
-                (Some("ls"), None) => Ok(Self::LS),
-                (Some("cd"), Some("..")) => Ok(Self::CD(CDArg::Parent)),
-                (Some("cd"), Some(path)) => Ok(Self::CD(CDArg::Name(path.to_owned()))),
-                (_, _) => Err("invalid command"),
-            }
+            Ok(match s {
+                "/" => Self::Root,
+                ".." => Self::Parent,
+                "" => return Err("Empty Change Directory Argument"),
+                _ => Self::Child(s.to_owned()),
+            })
         }
     }
 
-    pub(crate) enum CDArg {
-        Name(String),
-        Parent,
-    }
-
     pub(crate) enum Listing {
+        Directory(String),
         File(u32, String),
-        Dir(String),
     }
 
-    impl FromStr for Listing {
-        type Err = String;
+    pub(crate) struct DList(Vec<Listing>);
 
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let mut b = s.split_ascii_whitespace();
+    impl FromIterator<String> for DList {
+        fn from_iter<T: IntoIterator<Item = String>>(input: T) -> Self {
+            DList(
+                input
+                    .into_iter()
+                    .map(|x| {
+                        let Some((a, b)) = x.split_once(" ") else {
+                            panic!("There are only two elements in a listing")
+                        };
 
-            match (b.next(), b.next()) {
-                (Some("dir"), Some(name)) => Ok(Self::Dir(name.to_owned())),
-                (Some(size_str), Some(name)) => {
-                    let size: u32 = size_str.parse().map_err(|x| format!("{}", x))?;
-                    Ok(Self::File(size, name.to_owned()))
-                }
-                (_, _) => Err("invalid listing".to_string()),
-            }
+                        match a {
+                            "dir" => Listing::Directory(b.to_owned()),
+                            _ => Listing::File(a.parse().unwrap(), b.to_owned()),
+                        }
+                    })
+                    .collect(),
+            )
+        }
+    }
+
+    impl IntoIterator for DList {
+        type Item = Listing;
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            self.0.into_iter()
         }
     }
 }
