@@ -8,12 +8,12 @@ use std::{
 
 use nom::{
     bytes::complete::{is_not, tag, take_until1, take_while, take_while1},
-    character::complete::{digit1, line_ending, newline, not_line_ending, one_of, space0},
-    combinator::{all_consuming, map, map_res, opt, recognize, flat_map, map_parser},
-    error::{self, ErrorKind, Error},
+    character::complete::{digit1, line_ending, newline, not_line_ending, one_of, space0, space1},
+    combinator::{all_consuming, flat_map, map, map_parser, map_res, opt, recognize},
+    error::{self, Error, ErrorKind},
     multi::{many1, separated_list0},
     sequence::{preceded, terminated, tuple},
-    IResult, Parser, Finish,
+    Finish, IResult, Parser,
 };
 
 type Worry = u32;
@@ -31,36 +31,31 @@ impl Monkey {
             parse_line,
             preceded(
                 tuple((opt(tag("  ")), tag("Starting items: "))),
-                all_consuming(
-                    separated_list0(
-                        tag(", "),
-                        parse_digits,
-                    )
-                )
-            )
+                all_consuming(separated_list0(tag(", "), parse_digits)),
+            ),
         )(input)
     }
 
     fn parse_worry_operation(input: &str) -> IResult<&str, WorryOperation> {
-        let (input, _) = tag("Operation: new = old ")(input)?;
+        let parse_op_char = map_res(
+            terminated(one_of("*+"), space1),
+            |opc| -> Result<fn(Worry, Worry) -> Worry, &str> {
+                match opc {
+                    '*' => Ok(Worry::mul),
+                    '+' => Ok(Worry::add),
+                    _ => Err("Invalid Operator"),
+                }
+            },
+        );
 
-        let (input, opc) = one_of("*+")(input)?;
+        let parse_operation = parse_op_char
+            .and(parse_digits)
+            .map(|(op, val)| WorryOperation { op, val });
 
-        let op = match opc {
-            '*' => Worry::mul,
-            '+' => Worry::add,
-            _ => {
-                return Err(nom::Err::Error(error::Error {
-                    code: ErrorKind::Fail,
-                    input,
-                }))
-            }
-        };
-
-        let (input, val): (&str, Worry) =
-            map_res(recognize(many1(one_of("0123456789"))), |x: &str| x.parse())(input)?;
-
-        Ok((input, WorryOperation { op, val }))
+        preceded(
+            tuple((opt(tag("  ")), tag("Operation: new = old "))),
+            parse_operation,
+        )(input)
     }
 }
 
@@ -83,13 +78,11 @@ struct MonkeyTest {
 }
 
 impl MonkeyTest {
-
     fn parse_modulo(input: &str) -> IResult<&str, Worry> {
-        let (input, line) = parse_line(input)?;
-
-        let (_, modulo) = preceded(tag("  Test: divisible by "), parse_digits_whole_str)(line)?;
-
-        Ok((input, modulo))
+        map_parser(
+            parse_line,
+            preceded(tag("  Test: divisible by "), parse_digits_whole_str)
+        )(input)
     }
 
     fn parse_condition_line(cond: bool) -> (impl Fn(&str) -> IResult<&str, Worry>) {
@@ -113,11 +106,8 @@ impl MonkeyTest {
     }
 
     fn parse_monkey_test(input: &str) -> IResult<&str, (Worry, (Worry, Worry))> {
-        // let (input, (modulo, (true_dst, false_dst))) = 
-        tuple(
-            (Self::parse_modulo,
-            Self::parse_conditions)
-        )(input)
+        // let (input, (modulo, (true_dst, false_dst))) =
+        tuple((Self::parse_modulo, Self::parse_conditions))(input)
     }
 }
 
@@ -199,12 +189,17 @@ mod test {
     }
 
     #[test]
+    fn test_parse_worry_operation() {
+        const TEST_STR: &'static str =
+            "    If true: throw to monkey 2\n    If false: throw to monkey 0";
+        assert_eq!(MonkeyTest::parse_conditions(TEST_STR), Ok(("", (2, 0))))
+    }
+
+    #[test]
     fn test_parse_monkey_test_condition() {
-        const TEST_STR: &'static str = "    If true: throw to monkey 2\n    If false: throw to monkey 0";
-        assert_eq!(
-            MonkeyTest::parse_conditions(TEST_STR),
-            Ok(("", (2, 0)))
-        )
+        const TEST_STR: &'static str =
+            "    If true: throw to monkey 2\n    If false: throw to monkey 0";
+        assert_eq!(MonkeyTest::parse_conditions(TEST_STR), Ok(("", (2, 0))))
     }
 
     #[test]
