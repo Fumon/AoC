@@ -27,18 +27,18 @@ pub(crate) struct Monkey {
 
 impl Monkey {
     fn parse_items(input: &str) -> IResult<&str, Vec<Worry>> {
-        let (input, line) = parse_line(input)?;
-
-        let (line, _) = preceded(opt(tag("  ")), tag("Starting items: "))(line)?;
-
-        let (_, nums) = all_consuming(|f| {
-            separated_list0(
-                tag(", "),
-                map_res(recognize(many1(one_of("0123456789"))), |x: &str| x.parse()),
-            )(f)
-        })(line)?;
-
-        Ok((input, nums))
+        map_parser(
+            parse_line,
+            preceded(
+                tuple((opt(tag("  ")), tag("Starting items: "))),
+                all_consuming(
+                    separated_list0(
+                        tag(", "),
+                        parse_digits,
+                    )
+                )
+            )
+        )(input)
     }
 
     fn parse_worry_operation(input: &str) -> IResult<&str, WorryOperation> {
@@ -87,7 +87,7 @@ impl MonkeyTest {
     fn parse_modulo(input: &str) -> IResult<&str, Worry> {
         let (input, line) = parse_line(input)?;
 
-        let (_, modulo) = preceded(tag("  Test: divisible by "), parse_digits)(line)?;
+        let (_, modulo) = preceded(tag("  Test: divisible by "), parse_digits_whole_str)(line)?;
 
         Ok((input, modulo))
     }
@@ -100,7 +100,7 @@ impl MonkeyTest {
                     tag(cond.to_string().as_str()),
                     tag(": throw to monkey "),
                 )),
-                parse_digits,
+                parse_digits_whole_str,
             )(input)
         }
     }
@@ -125,7 +125,7 @@ impl MonkeyTest {
 //     type Err = nom::error::Error<String>;
 
 //     fn from_str(s: &str) -> Result<Self, Self::Err> {
-
+        
 //         match Self::parse_monkey_test(s).finish() {
 //             Ok((_, (modulo, (true_dst, false_dst)))) => Ok(MonkeyTest{modulo, true_dst, false_dst}),
 //             Err(Error{input, code}) => Err(Error {
@@ -143,7 +143,11 @@ fn parse_line(input: &str) -> IResult<&str, &str> {
 }
 
 fn parse_digits(input: &str) -> IResult<&str, Worry> {
-    all_consuming(map_res(recognize(digit1), |n: &str| n.parse()))(input)
+    map_res(digit1, |n: &str| n.parse())(input)
+}
+
+fn parse_digits_whole_str(input: &str) -> IResult<&str, Worry> {
+    all_consuming(parse_digits)(input)
 }
 
 #[cfg(test)]
