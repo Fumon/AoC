@@ -99,11 +99,11 @@ impl MonkeyTest {
     }
 
     fn parse_conditions(input: &str) -> IResult<&str, (Worry, Worry)> {
-
-        let a = tuple((parse_line, parse_line)).map(|(l1, l2)| {
-            (preceded(tag("    If true: throw to monkey "), Self::parse_digits)(l1),
-            preceded(tag("    If false: throw to monkey "), Self::parse_digits)(l2))
-        }).parse(input)?;
+        
+        (vec![(line_ending, "true"), (line_ending, "false")]).into_iter()
+        .map(|(linecomb, cond)| {
+            linecomb.map(|f| preceded(tuple((tag("    If"),tag(cond), tag("throw to monkey "))), Self::parse_digits))
+        })
 
         todo!()
     }
