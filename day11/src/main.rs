@@ -11,7 +11,11 @@ mod monkey;
 
 fn main() {
     let monkeys_and_items = get_monkeys_from_input(read_to_string("./input").unwrap());
+    // part_1(monkeys_and_items);
+    part_2(monkeys_and_items);
+}
 
+fn part_1(monkeys_and_items: Vec<(Vec<Worry>, Monkey)>) {
     let mut mb = MonkeyBusiness::new(monkeys_and_items);
 
     let total_monkey_business: usize = mb.business_after_n_rounds(20);
@@ -19,17 +23,29 @@ fn main() {
     println!("Total Monkey Business after 20 rounds: {}", total_monkey_business)
 }
 
+fn part_2(monkeys_and_items: Vec<(Vec<Worry>, Monkey)>) {
+    let mut mb = MonkeyBusiness::new(monkeys_and_items);
+
+    let total_monkey_business: usize = mb.business_after_n_rounds(10_000);
+
+    println!("Total Monkey Business after 10_000 rounds: {}", total_monkey_business);
+}
+
+
 struct MonkeyBusiness {
     monkeys: Vec<Monkey>,
     item_lists: Vec<Vec<Worry>>,
+    mod_product: Worry,
 }
 
 impl MonkeyBusiness {
     fn new(input: Vec<(Vec<Worry>, Monkey)>) -> Self {
-        let (item_lists, monkeys) = input.into_iter().unzip();
+        let (item_lists, monkeys): (Vec<Vec<Worry>>, Vec<Monkey>) = input.into_iter().unzip();
+        let mod_product = monkeys.iter().map(|m| m.test.modulo.clone()).product::<u64>();
         MonkeyBusiness {
             monkeys,
             item_lists,
+            mod_product,
         }
     }
 
@@ -46,9 +62,8 @@ impl MonkeyBusiness {
                 let inspect_len = items.len();
 
                 let (true_vec, false_vec): (Vec<Worry>, Vec<Worry>) = repeat(&monkey.worry_op)
-                    .zip(items)
+                    .zip(items.into_iter().map(|w| w.rem(self.mod_product)))
                     .map(WorryOperation::exec_tup)
-                    .map(|w| w.saturating_div(3))
                     .partition(|w| w.rem(monkey.test.modulo) == 0);
 
                 item_lists
@@ -72,12 +87,12 @@ impl MonkeyBusiness {
     }
 
     fn business_after_n_rounds(&mut self, rounds: usize) -> usize {
-        let mut round_count:usize = 0;
+        // let mut round_count:usize = 0;
         let mut business_totals = from_fn(|| {
             let run = self.run_round();
-            round_count += 1;
-            println!("After round {}, the monkeys are holding items with these worry levels:", &round_count);
-            self.print_items();
+            // round_count += 1;
+            // println!("After round {}, the monkeys are holding items with these worry levels:", &round_count);
+            // self.print_items();
             Some(run)
         })
         .inspect(|f| println!("Inspections: {:?}", f))

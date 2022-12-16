@@ -12,13 +12,12 @@ use nom::{
     IResult, Parser,
 };
 
-pub(crate) type Worry = u32;
+pub(crate) type Worry = u64;
 
 pub(crate) struct Monkey {
-    pub(crate) index: u32,
+    pub(crate) index: Worry,
     pub(crate) worry_op: WorryOperation,
     pub(crate) test: MonkeyTest,
-    pub(crate) activity: u32,
 }
 
 impl Monkey {
@@ -82,14 +81,13 @@ impl Monkey {
                 index: monkeyindex,
                 worry_op,
                 test,
-                activity: 0,
             }),
         ))
     }
 }
 
 enum WorryVal {
-    Val(u32),
+    Val(Worry),
     Old,
 }
 
@@ -116,8 +114,8 @@ impl WorryOperation {
 #[derive(Debug, PartialEq)]
 pub(crate) struct MonkeyTest {
     pub(crate) modulo: Worry,
-    pub(crate) true_dst: u32,
-    pub(crate) false_dst: u32,
+    pub(crate) true_dst: Worry,
+    pub(crate) false_dst: Worry,
 }
 
 impl MonkeyTest {
@@ -169,7 +167,7 @@ fn parse_line(input: &str) -> IResult<&str, &str> {
     terminated(not_line_ending, opt(line_ending))(input)
 }
 
-fn parse_digits(input: &str) -> IResult<&str, u32> {
+fn parse_digits(input: &str) -> IResult<&str, Worry> {
     map_res(digit1, |n: &str| n.parse())(input)
 }
 
@@ -280,11 +278,11 @@ mod test {
 
     fn check_monkey_full(
         monkey: &Monkey,
-        index: u32,
+        index: Worry,
         opresult: Worry,
         modulo: Worry,
-        true_dst: u32,
-        false_dst: u32,
+        true_dst: Worry,
+        false_dst: Worry,
     ) {
         assert_eq!(monkey.index, index);
 
