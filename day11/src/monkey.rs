@@ -308,7 +308,7 @@ mod test {
 
         assert_eq!(items, vec![54, 65, 75, 74]);
 
-        check_monkey_full(&monkey, 1, 0, 106, 19, 2);
+        check_monkey_full(&monkey, 1, 106, 19, 2, 0);
 
         let (remaining, (items, monkey)) = Monkey::parse_monkey(OLD_OP_MONKEY).unwrap();
 

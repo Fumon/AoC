@@ -11,41 +11,51 @@ mod monkey;
 
 fn main() {
     let monkeys_and_items = get_monkeys_from_input(read_to_string("./input").unwrap());
-    // part_1(monkeys_and_items);
+    //part_1(monkeys_and_items);
     part_2(monkeys_and_items);
 }
 
 fn part_1(monkeys_and_items: Vec<(Vec<Worry>, Monkey)>) {
-    let mut mb = MonkeyBusiness::new(monkeys_and_items);
+    let mut mb = MonkeyBusiness::new(monkeys_and_items, false);
 
     let total_monkey_business: usize = mb.business_after_n_rounds(20);
 
-    println!("Total Monkey Business after 20 rounds: {}", total_monkey_business)
+    println!(
+        "Total Monkey Business after 20 rounds: {}",
+        total_monkey_business
+    )
 }
 
 fn part_2(monkeys_and_items: Vec<(Vec<Worry>, Monkey)>) {
-    let mut mb = MonkeyBusiness::new(monkeys_and_items);
+    let mut mb = MonkeyBusiness::new(monkeys_and_items, true);
 
     let total_monkey_business: usize = mb.business_after_n_rounds(10_000);
 
-    println!("Total Monkey Business after 10_000 rounds: {}", total_monkey_business);
+    println!(
+        "Total Monkey Business after 10_000 rounds: {}",
+        total_monkey_business
+    );
 }
-
 
 struct MonkeyBusiness {
     monkeys: Vec<Monkey>,
     item_lists: Vec<Vec<Worry>>,
     mod_product: Worry,
+    part2: bool,
 }
 
 impl MonkeyBusiness {
-    fn new(input: Vec<(Vec<Worry>, Monkey)>) -> Self {
+    fn new(input: Vec<(Vec<Worry>, Monkey)>, part2: bool) -> Self {
         let (item_lists, monkeys): (Vec<Vec<Worry>>, Vec<Monkey>) = input.into_iter().unzip();
-        let mod_product = monkeys.iter().map(|m| m.test.modulo.clone()).product::<u64>();
+        let mod_product = monkeys
+            .iter()
+            .map(|m| m.test.modulo.clone())
+            .product::<u64>();
         MonkeyBusiness {
             monkeys,
             item_lists,
             mod_product,
+            part2,
         }
     }
 
@@ -61,9 +71,21 @@ impl MonkeyBusiness {
                     .collect();
                 let inspect_len = items.len();
 
-                let (true_vec, false_vec): (Vec<Worry>, Vec<Worry>) = repeat(&monkey.worry_op)
-                    .zip(items.into_iter().map(|w| w.rem(self.mod_product)))
+                let op_iter = repeat(&monkey.worry_op);
+                let item_iter = items.into_iter().map(|w| {
+                    if !self.part2 {
+                        w
+                    } else {
+                        w.rem(self.mod_product)
+                    }
+                });
+
+                let before_reduce_iter = op_iter
+                    .zip(item_iter)
                     .map(WorryOperation::exec_tup)
+                    .map(|v| if self.part2 {v} else {v.saturating_div(3)});
+
+                let (true_vec, false_vec): (Vec<Worry>, Vec<Worry>) = before_reduce_iter
                     .partition(|w| w.rem(monkey.test.modulo) == 0);
 
                 item_lists
@@ -87,15 +109,10 @@ impl MonkeyBusiness {
     }
 
     fn business_after_n_rounds(&mut self, rounds: usize) -> usize {
-        // let mut round_count:usize = 0;
         let mut business_totals = from_fn(|| {
             let run = self.run_round();
-            // round_count += 1;
-            // println!("After round {}, the monkeys are holding items with these worry levels:", &round_count);
-            // self.print_items();
             Some(run)
         })
-        .inspect(|f| println!("Inspections: {:?}", f))
         .take(rounds)
         .reduce(|monkey_business, round_business| {
             monkey_business
@@ -103,7 +120,8 @@ impl MonkeyBusiness {
                 .zip(round_business.into_iter())
                 .map(|(a, b)| a + b)
                 .collect()
-        }).unwrap();
+        })
+        .unwrap();
         business_totals.sort();
         business_totals.iter().rev().take(2).product()
     }
@@ -157,7 +175,7 @@ Monkey 3:
             Vec::from([]),
         ]);
 
-        let mut mb = MonkeyBusiness::new(get_monkeys_from_input(SAMPLE_MONKEYS));
+        let mut mb = MonkeyBusiness::new(get_monkeys_from_input(SAMPLE_MONKEYS), false);
 
         let monkey_business_round = mb.run_round();
 
@@ -168,8 +186,15 @@ Monkey 3:
 
     #[test]
     fn total_after_20() {
-        let mut mb = MonkeyBusiness::new(get_monkeys_from_input(SAMPLE_MONKEYS));
+        let mut mb = MonkeyBusiness::new(get_monkeys_from_input(SAMPLE_MONKEYS), false);
 
         assert_eq!(mb.business_after_n_rounds(20), 10605);
+    }
+
+    #[test]
+    fn total_after_10000() {
+        let mut mb = MonkeyBusiness::new(get_monkeys_from_input(SAMPLE_MONKEYS), true);
+
+        assert_eq!(mb.business_after_n_rounds(10_000), 2713310158);
     }
 }
