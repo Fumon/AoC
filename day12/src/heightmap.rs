@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Add};
 
 pub(crate) type Elevation = u8;
 
@@ -12,10 +12,18 @@ pub(crate) struct ParsedHeightMap {
     pub end: Point,
 }
 
-pub(crate) struct Heightmap(HashMap<Point, Elevation>);
+pub(crate) struct Heightmap(pub(crate) HashMap<Point, Elevation>);
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, PartialOrd, Eq)]
-pub(crate) struct Point(usize, usize);
+#[derive(Debug, Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Ord)]
+pub(crate) struct Point(pub(crate) i32, pub(crate) i32);
+
+impl Add for &Point {
+    type Output = Point;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Point(self.0 + rhs.0, self.1 + rhs.1)
+    }
+}
 
 #[derive(PartialEq, Debug)]
 enum EncodedElevation {
@@ -47,12 +55,12 @@ impl EncodedElevation {
     }
 }
 
-fn parse_heightmap(i: &str) -> ParsedHeightMap {
+pub(crate) fn parse_heightmap(i: &str) -> ParsedHeightMap {
     // Create an iterator: (Point, EncodedElevation)
     let g = i.lines().enumerate().flat_map(|(y, line): (usize, &str)| {
         line.chars()
             .enumerate()
-            .map(move |(x, c)| (Point(x, y), EncodedElevation::from_char(c)))
+            .map(move |(x, c)| (Point(x as i32, y as i32), EncodedElevation::from_char(c)))
     });
 
     let (hm, Some(start), Some(end)) = ({
@@ -111,8 +119,8 @@ abdefghi"#;
     fn heightmap_decoding() {
         let ph = parse_heightmap(EXAMPLE_1);
 
-        assert_eq!(Point(0,0), ph.start);
+        assert_eq!(Point(0, 0), ph.start);
         assert_eq!(Point(5, 2), ph.end);
-        assert_eq!(5*8, ph.hm.0.len());
+        assert_eq!(5 * 8, ph.hm.0.len());
     }
 }
