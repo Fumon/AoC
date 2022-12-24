@@ -13,11 +13,13 @@ fn main() {
     let paths = parse_full_paths(read_to_string("./input").unwrap().as_str());
 
     let sand_units = part_1(&paths);
+    println!("Total Sand Settled: {}", sand_units);
 
-    println!("Total Sand Units Settled: {}", sand_units);
+    let sand_units2 = part_2(&paths);
+    println!("Total Sand Settled including floor: {}", sand_units2);
 }
 
-fn part_1(paths: &PathSet) -> usize {
+fn fill_cave(paths: &PathSet) -> HashSet<PathPoint> {
     let mut cave = HashSet::new();
 
     paths
@@ -40,6 +42,12 @@ fn part_1(paths: &PathSet) -> usize {
             cave.insert(pt);
         });
 
+    cave
+}
+
+fn part_1(paths: &PathSet) -> usize {
+    let mut cave = fill_cave(paths);
+    
     let PathSetBounds {
         min_right: _,
         max_right: _,
@@ -97,6 +105,50 @@ fn part_1(paths: &PathSet) -> usize {
     sandcount
 }
 
+const DOWN: PathPoint = PathPoint(0, 1);
+const LEFTDOWN: PathPoint = PathPoint(-1, 1);
+const RIGHTDOWN: PathPoint = PathPoint(1, 1);
+
+const DESENT_SEQUENCE: [PathPoint; 3] = [DOWN, LEFTDOWN, RIGHTDOWN];
+
+fn part_2(paths: &PathSet) -> usize {
+    let mut cave = fill_cave(paths);
+    
+    let PathSetBounds {
+        min_right: _,
+        max_right: _,
+        max_depth,
+    } = paths.find_bounds();
+
+    let floor_depth = max_depth + 2;
+
+    let mut sandcount = 0;
+    let mut sp = SandPath::new();
+
+    let mut s = PathPoint(500, 0);
+
+    'outer: loop {
+        for a in DESENT_SEQUENCE {
+            let sd = s + a;
+            if sd.1 < floor_depth && !cave.contains(&sd) {
+                sp.push(s);
+                s = sd;
+                continue 'outer;
+            }
+        }
+
+        // CRISSCROSS (settle)
+        cave.insert(s);
+        sandcount += 1;
+        match sp.pop() {
+            Some(prev) => s = prev,
+            None => break,
+        }
+    }
+
+    sandcount
+}
+
 type SandPath = Vec<PathPoint>;
 
 #[cfg(test)]
@@ -113,6 +165,11 @@ mod test {
     #[test]
     fn part_1() {
         assert_eq!(24, super::part_1(&parse_example()));
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(93, super::part_2(&parse_example()));
     }
 }
 
