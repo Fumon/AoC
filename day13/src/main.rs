@@ -1,22 +1,48 @@
-use std::{fs::read_to_string, iter::zip};
+#![feature(array_chunks)]
+use std::{collections::BinaryHeap, fs::read_to_string, iter::zip};
 
-use packets::{Value, parse_full_packet_input};
+use packets::{parse_full_packet_input, Value};
 
 fn main() {
     let ppairs = parse_full_packet_input(read_to_string("./input").unwrap().as_str());
 
-    part_1(&ppairs)
+    println!(
+        "The sum of indicies of in-order pairs of packets is:\n\t{}",
+        part_1(&ppairs)
+    );
+    
+    println!(
+        "The product of the indicies for the two separator packets is:\n\t{}",
+        part_2(&ppairs)
+    );
 }
 
-fn part_1(ppairs: &Vec<[Value;2]>) {
-    let s: usize = zip(1.., ppairs.iter()).filter_map(|(i, [l, r])| if l < r { Some(i) } else { None }).sum();
-    println!("The sum of indicies of in-order pairs of packets is:\n\t{}", s);
+fn part_1(ppairs: &Vec<Value>) -> usize {
+    zip(1.., ppairs.array_chunks())
+        .filter_map(|(i, [l, r])| if l < r { Some(i) } else { None })
+        .sum()
+}
+
+fn part_2(ppairs: &Vec<Value>) -> usize {
+    let dividers = parse_full_packet_input("[[2]]\n[[6]]");
+
+    let mut heap = BinaryHeap::new();
+    heap.extend(ppairs.iter());
+    heap.extend(dividers.iter());
+
+    zip(1.., heap.into_sorted_vec().into_iter())
+        .filter_map(|(i, packet)| {
+            if dividers.contains(packet) {
+                Some(i)
+            } else {
+                None
+            }
+        })
+        .product()
 }
 
 #[cfg(test)]
 mod test {
-    use std::iter::zip;
-
     use crate::packets::parse_full_packet_input;
 
     const EXAMPLE_1: &'static str = r#"[1,1,3,1,1]
@@ -47,10 +73,13 @@ mod test {
     fn p1_example() {
         let ppairs = parse_full_packet_input(EXAMPLE_1);
 
-        let s: usize = zip(1.., ppairs.into_iter())
-            .filter_map(|(i, [l, r])| if l < r { Some(i) } else { None })
-            .sum();
-        assert_eq!(13, s);
+        assert_eq!(13, super::part_1(&ppairs));
+    }
+
+    #[test]
+    fn p2_example() {
+        let ppairs = parse_full_packet_input(EXAMPLE_1);
+        assert_eq!(140, super::part_2(&ppairs));
     }
 }
 
@@ -60,9 +89,9 @@ mod packets {
     use nom::{
         branch::alt,
         character::complete::{char, digit1, line_ending},
-        combinator::{all_consuming, map_res, opt},
-        multi::{many_m_n, separated_list0, separated_list1},
-        sequence::{delimited, terminated, tuple},
+        combinator::{all_consuming, map_res},
+        multi::{many1, separated_list0, many0},
+        sequence::{delimited, terminated},
         IResult, Parser,
     };
 
@@ -112,6 +141,7 @@ mod packets {
         .parse(input)
     }
 
+    #[allow(unused)]
     fn parse_one_packet(line: &str) -> Value {
         let ("", val) = all_consuming(parse_packet)(line).unwrap() else {
             panic!()
@@ -119,15 +149,8 @@ mod packets {
         val
     }
 
-    fn parse_packet_pair(input: &str) -> IResult<&str, [Value; 2]> {
-        map_res(
-            many_m_n(2, 2, terminated(parse_packet, opt(line_ending))),
-            |v| v.try_into(),
-        )(input)
-    }
-
-    pub(crate) fn parse_full_packet_input(input: &str) -> Vec<[Value; 2]> {
-        let ("", ppairs) = all_consuming(separated_list1(line_ending, parse_packet_pair))(input).unwrap() else {
+    pub(crate) fn parse_full_packet_input(input: &str) -> Vec<Value> {
+        let ("", ppairs) = all_consuming(many1(terminated(parse_packet, many0(line_ending))))(input).unwrap() else {
             panic!()
         };
         ppairs
