@@ -1,3 +1,4 @@
+
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashMap},
@@ -69,14 +70,14 @@ impl Ord for FrontNode {
     }
 }
 
-pub(crate) fn find_shortest(input: &crate::heightmap::ParsedHeightMap, rt: ReachTest) -> u32 {
+pub(crate) fn find_shortest(hm: &crate::heightmap::Heightmap, start: &Point, end: EndGoal, rt: ReachTest) -> u32 {
     // Reachable iterator
     let reach_from_here = |h: &Point, e: Elevation| {
         return [Point(1, 0), Point(0, -1), Point(-1, 0), Point(0, 1)]
             .map(|d| h + &d)
             .into_iter()
             .filter(move |p| {
-                let Some(other_ele) = input.hm.0.get(p) else { return false };
+                let Some(other_ele) = hm.0.get(p) else { return false };
 
                 rt(&e, other_ele)
             })
@@ -89,25 +90,37 @@ pub(crate) fn find_shortest(input: &crate::heightmap::ParsedHeightMap, rt: Reach
     // Frontier consists of all unvisited points reachable from those already visite
     let mut front = BinaryHeap::new();
 
-    distances.insert(input.start, D::Dist(0));
+    distances.insert(*start, D::Dist(0));
     front.push(FrontNode {
         dist: D::Dist(0),
-        position: input.start,
+        position: *start,
     });
 
     let mut shortest_path = None;
 
     while let Some(FrontNode { dist, position }) = front.pop() {
-        if position == input.end {
-            shortest_path = Some(dist);
-            break;
-        }
+        let cur_elevation = hm.0.get(&position).unwrap().clone();
 
+        match end {
+            EndGoal::Point(p) => {
+                if position == p {
+                    shortest_path = Some(dist);
+                    break;
+                }
+            },
+            EndGoal::Height(end_height) => {
+                if cur_elevation == end_height {
+                    if dist < shortest_path.unwrap_or_default() {
+                        shortest_path = Some(dist);
+                        continue; // Continue as we may not have found all the destinations
+                    }
+                }
+            },
+        }
+        
         if dist > distances[&position] {
             continue;
         }
-
-        let cur_elevation = input.hm.0.get(&position).unwrap().clone();
 
         for o_point in reach_from_here(&position, cur_elevation) {
             let o_node = FrontNode {
@@ -129,6 +142,11 @@ pub(crate) fn find_shortest(input: &crate::heightmap::ParsedHeightMap, rt: Reach
     shortpath_dist
 }
 
+pub(crate) enum EndGoal {
+    Point(Point),
+    Height(Elevation),
+}
+
 type ReachTest = fn(&Elevation, &Elevation) -> bool;
 
 pub(crate) fn one_step_up_reach(cur: &Elevation, test: &Elevation) -> bool {
@@ -140,9 +158,18 @@ pub(crate) fn one_step_up_reach(cur: &Elevation, test: &Elevation) -> bool {
     }
 }
 
+pub(crate) fn one_step_down_reach(cur: &Elevation, test: &Elevation) -> bool {
+    let step_down = cur.saturating_sub(1);
+    if test >= &step_down {
+        true
+    } else {
+        false
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::heightmap::parse_heightmap;
+    use crate::{heightmap::parse_heightmap, pathing::{EndGoal, one_step_down_reach}};
 
     use super::{find_shortest, one_step_up_reach};
 
@@ -156,6 +183,8 @@ abdefghi"#;
     fn shortest() {
         let phm = parse_heightmap(EXAMPLE_1);
 
-        assert_eq!(31, find_shortest(&phm, one_step_up_reach));
+        assert_eq!(31, find_shortest(&phm.hm, &phm.start, EndGoal::Point(phm.end), one_step_up_reach));
+
+        assert_eq!(29, find_shortest(&phm.hm, &phm.end, EndGoal::Height(0), one_step_down_reach));
     }
 }
