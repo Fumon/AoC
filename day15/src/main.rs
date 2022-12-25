@@ -54,7 +54,17 @@ fn part_1(sensors: Vec<Sensor>, y_target: Coord) -> usize {
 
 #[cfg(test)]
 mod test {
-    use day15::sensor::Sensor;
+    use std::{
+        iter::repeat,
+        ops::{Div, Rem},
+    };
+
+    use day15::{
+        sensor::Sensor,
+        taxicab::{Coord, Point},
+    };
+
+    use nom::AsBytes;
 
     const EXAMPLE: &'static str = r#"Sensor at x=2, y=18: closest beacon is at x=-2, y=15
 Sensor at x=9, y=16: closest beacon is at x=10, y=16
@@ -83,5 +93,75 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3"#;
     #[test]
     fn part_1() {
         assert_eq!(26, super::part_1(parse_example(), 10));
+    }
+
+    #[test]
+    fn render_space() {
+        let sensors = parse_example();
+
+        // find bounds
+        let (xmin, xmax, ymin, ymax) = sensors
+            .iter()
+            .map(
+                |Sensor {
+                     position,
+                     closest_beacon: _,
+                     exclusion_radius,
+                 }| {
+                    let e = *exclusion_radius as i64;
+                    (
+                        position.0 as i64 - e,
+                        position.0 as i64 + e,
+                        position.1 as i64 - e,
+                        position.1 as i64 + e,
+                    )
+                },
+            )
+            .reduce(|(axmin, axmax, aymin, aymax), (xmin, xmax, ymin, ymax)| {
+                (
+                    (xmin < axmin).then_some(xmin).unwrap_or(axmin),
+                    (xmax > axmax).then_some(xmax).unwrap_or(axmax),
+                    (ymin < aymin).then_some(ymin).unwrap_or(aymin),
+                    (ymax > aymax).then_some(ymax).unwrap_or(aymax),
+                )
+            })
+            .unwrap();
+
+        let ysize = ymax - ymin;
+        let xsize = xmax - xmin;
+        let vsize = xsize * ysize;
+
+        let mut rstring = repeat('.' as u8).take(vsize as usize).collect::<Vec<_>>();
+
+        let ind = |Point(x, y)| (((y as i64 - ymin) * xsize) + (x as i64 - xmin)) as usize;
+        let revind = |u: usize| {
+            Point(
+                u.rem(xsize as usize) as Coord + xmin as Coord,
+                (u.div(xsize as usize)) as Coord + ymin as Coord,
+            )
+        };
+
+        for (i, s) in rstring.iter_mut().enumerate() {
+            let p = revind(i);
+            for sensor in sensors.iter() {
+                if sensor.position.taxicab_dist(&p) <= sensor.exclusion_radius {
+                    *s = '#' as u8;
+                }
+            }
+        }
+
+        for sensor in sensors {
+            rstring[ind(sensor.position)] = 'S' as u8;
+
+            // Beacon
+            rstring[ind(sensor.closest_beacon)] = 'B' as u8;
+        }
+
+        let mut g = unsafe { std::str::from_utf8_unchecked(rstring.as_bytes()) };
+        while g.len() > xsize as usize {
+            let (head, tail) = g.split_at(xsize as usize);
+            println!("{}", head);
+            g = tail;
+        }
     }
 }
