@@ -1,20 +1,28 @@
+#![feature(slice_group_by)]
 use std::{collections::HashSet, fs::read_to_string, iter::from_fn};
 
 use day15::{
+    lines::{Line, Sign},
     sensor::Sensor,
     taxicab::{Coord, Point},
 };
+use itertools::Itertools;
 use nom::{character::complete::line_ending, multi::separated_list1, Parser};
 
 fn main() {
     let sensors = parse_all_sensors(read_to_string("./input").unwrap().as_str());
 
-    const P1_Y_TARGET: Coord = 2_000_000;
+    // const P1_Y_TARGET: Coord = 2_000_000;
+    // println!(
+    //     "In the row y={}, {} positions cannot contain beacons",
+    //     P1_Y_TARGET,
+    //     part_1(&sensors, P1_Y_TARGET)
+    // );
+
     println!(
-        "In the row y={}, {} positions cannot contain beacons",
-        P1_Y_TARGET,
-        part_1(sensors, P1_Y_TARGET)
-    )
+        "The tuning frequency of the unclaimed coordinate is:\n\t{}",
+        part_2(&sensors, 0, 4_000_000)
+    );
 }
 
 fn parse_all_sensors(input: &str) -> Vec<Sensor> {
@@ -24,7 +32,7 @@ fn parse_all_sensors(input: &str) -> Vec<Sensor> {
     v
 }
 
-fn part_1(sensors: Vec<Sensor>, y_target: Coord) -> usize {
+fn part_1(sensors: &Vec<Sensor>, y_target: Coord) -> usize {
     let mut beacon_coords = HashSet::new();
     let mut sensor_iter = sensors.iter();
 
@@ -50,6 +58,101 @@ fn part_1(sensors: Vec<Sensor>, y_target: Coord) -> usize {
     .collect::<HashSet<Coord>>()
     .difference(&beacon_coords)
     .count()
+}
+
+fn part_2(sensors: &Vec<Sensor>, min_coord: Coord, max_coord: Coord) -> i64 {
+    // Find all the periphery points not filtered by bounds.
+    // If there is only one point availble, t
+
+    // Consider all the lines described by the edges of the sensor ranges.
+    // The non-covered spot will be at the intersection of four of those lines.
+    // That should be unique.
+
+    // Sorting?
+    // Hashing?
+    // Move each line one further unit away from the center
+    // Find two pairs of lines.
+
+    fn create_lines(
+        Sensor {
+            position,
+            closest_beacon: _,
+            exclusion_radius,
+        }: &Sensor,
+    ) -> Vec<Line> {
+        // Add one to collide with the empty spot
+        let r = (exclusion_radius + 1) as i32;
+
+        let north = *position + Point(0, r);
+        let south = *position + Point(0, -r);
+
+        // fn slope(p1: &Point, p2: &Point) -> i32 {
+        //     (p2.1 - p1.1) / (p2.0 - p1.0)
+        // }
+
+        // fn intercept(p1: &Point, slope: i32) -> i32 {
+        //     (-1 * slope * p1.0) + p1.1
+        // }
+
+        vec![
+            Line(Sign::Neg, north.0 + north.1),
+            Line(Sign::Pos, -north.0 + north.1),
+            Line(Sign::Pos, -south.0 + south.1),
+            Line(Sign::Neg, south.0 + south.1),
+        ]
+    }
+
+    let mut linev: Vec<Line> = sensors.iter().flat_map(create_lines).collect();
+    linev.sort_unstable();
+    let (poslines, neglines): (Vec<_>, Vec<_>) = linev
+        .group_by(Line::eq)
+        .map(|g| {
+            let count = g.len();
+            (g.first().unwrap(), count)
+        })
+        .filter_map(|(l, count)| if count >= 2 { Some(l) } else { None })
+        .partition(|Line(sign, _)| *sign == Sign::Pos);
+
+    // Check intersections and filter
+    let intersections = poslines
+        .iter()
+        .cartesian_product(neglines)
+        .map(|(l1, l2)| Line::intersection_point(l1, l2))
+        .flatten()
+        .filter(|p| {
+            for sensor in sensors {
+                if sensor.position.taxicab_dist(&p) <= sensor.exclusion_radius {
+                    return false;
+                }
+            }
+            true
+        })
+        .filter(|Point(x, y)| {
+            match (
+                x >= &min_coord,
+                x <= &max_coord,
+                y >= &min_coord,
+                y <= &max_coord,
+            ) {
+                (true, true, true, true) => true,
+                _ => false,
+            }
+        })
+        .exactly_one();
+
+    let intersection = match intersections {
+        Ok(i) => i,
+        Err(e) => match e.count() {
+            0 => panic!("No valid intersections"),
+            _ => panic!("More than one valid intersection"),
+        },
+    };
+
+    fn tuning_frequency(x: Coord, y: Coord) -> i64 {
+        (x as i64 * 4_000_000) + y as i64
+    }
+
+    tuning_frequency(intersection.0, intersection.1)
 }
 
 #[cfg(test)]
@@ -87,12 +190,31 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3"#;
 
     #[test]
     fn parse_count_matches() {
-        assert_eq!(14, parse_example().len());
+        let ex = parse_example();
+        assert_eq!(14, ex.len());
+
+        for (
+            _,
+            Sensor {
+                position,
+                closest_beacon: _,
+                exclusion_radius,
+            },
+        ) in ex.iter().enumerate()
+        {
+            let Point(a, b) = position;
+            println!("(({}, {}), {})", a, b, exclusion_radius);
+        }
     }
 
     #[test]
     fn part_1() {
-        assert_eq!(26, super::part_1(parse_example(), 10));
+        assert_eq!(26, super::part_1(&parse_example(), 10));
+    }
+
+    #[test]
+    fn part_2() {
+        assert_eq!(56000011, super::part_2(&parse_example(), 0, 20))
     }
 
     #[test]
