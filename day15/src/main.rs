@@ -61,17 +61,9 @@ fn part_1(sensors: &Vec<Sensor>, y_target: Coord) -> usize {
 }
 
 fn part_2(sensors: &Vec<Sensor>, min_coord: Coord, max_coord: Coord) -> i64 {
-    // Find all the periphery points not filtered by bounds.
-    // If there is only one point availble, t
-
     // Consider all the lines described by the edges of the sensor ranges.
     // The non-covered spot will be at the intersection of four of those lines.
     // That should be unique.
-
-    // Sorting?
-    // Hashing?
-    // Move each line one further unit away from the center
-    // Find two pairs of lines.
 
     fn create_lines(
         Sensor {
@@ -85,14 +77,6 @@ fn part_2(sensors: &Vec<Sensor>, min_coord: Coord, max_coord: Coord) -> i64 {
 
         let north = *position + Point(0, r);
         let south = *position + Point(0, -r);
-
-        // fn slope(p1: &Point, p2: &Point) -> i32 {
-        //     (p2.1 - p1.1) / (p2.0 - p1.0)
-        // }
-
-        // fn intercept(p1: &Point, slope: i32) -> i32 {
-        //     (-1 * slope * p1.0) + p1.1
-        // }
 
         vec![
             Line(Sign::Neg, north.0 + north.1),
