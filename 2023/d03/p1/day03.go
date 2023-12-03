@@ -25,16 +25,15 @@ func main() {
 	ls := bufio.NewScanner(f)
 
 	var partsum int
-	var syms []*Symbol
 
-	var prevlinesym []*Symbol
+	var prevlinesym []bool
 	var prevlineparts []*Part
 
 	for ls.Scan() {
 
 		line := ls.Text()
 
-		var curlinesym = make([]*Symbol, len(line))
+		var curlinesym = make([]bool, len(line))
 		var curlineparts = make([]*Part, len(line))
 
 		var prevsym int = -1000
@@ -47,9 +46,8 @@ func main() {
 				if curpart != nil {
 					// Diagonal previous line check
 					if !curpart.valid {
-						if prevlinesym != nil && prevlinesym[ind] != nil {
+						if prevlinesym != nil && prevlinesym[ind] {
 							curpart.valid = true
-							prevlinesym[ind].AddPart(curpart)
 							// log.Println(curpart.Val(), " by diagprevlinefwd")
 						}
 					}
@@ -64,18 +62,8 @@ func main() {
 					t := NewPart(ch, ind)
 					curpart = &t
 					// Check prev
-					if pi := (ind - 1); pi >= 0 {
-						var validsym *Symbol
-						if pi == prevsym {
-							validsym = curlinesym[pi]
-						} else if (prevlinesym != nil && prevlinesym[pi] != nil) {
-							validsym = prevlinesym[pi]
-						}
-
-						if validsym != nil {
-							curpart.valid = true
-							validsym.AddPart(curpart)
-						}
+					if pi := (ind - 1); pi >= 0 && ( pi == prevsym || (prevlinesym != nil && prevlinesym[pi])) {
+						curpart.valid = true
 						// log.Println(curpart.Val(), " by prevsym or diagprevlineback")
 					}
 				} else {
@@ -83,23 +71,19 @@ func main() {
 				}
 				curlineparts[ind] = curpart
 				// Check cur ind
-				if !curpart.valid && (prevlinesym != nil && prevlinesym[ind] != nil) {
+				if !curpart.valid && (prevlinesym != nil && prevlinesym[ind]) {
 					curpart.valid = true
-					prevlinesym[ind].AddPart(curpart)
 					// log.Println(curpart.Val(), " by prevline")
 				}
 			} else {
 				// Symbol
-				ns := NewSymbol(ch)
-				syms = append(syms, &ns)
-				curlinesym[ind] = &ns 
+				curlinesym[ind] = true
 				prevsym = ind
 
 				if curpart != nil {
 					curpart.valid = true
 					// log.Println(curpart.Val(), " by hitsym")
 					partsum += curpart.Val()
-					ns.AddPart(curpart)
 					curpart = nil
 				}
 
@@ -117,7 +101,6 @@ func main() {
 						c := prevlineparts[pind]
 						if c != nil && !c.valid {
 							c.valid = true
-							ns.AddPart(c)
 							// log.Println(c.Val(), " by symprevlinecheck {", string(ch), " ", ind, "->", indcheck, ": ", c.bounds)
 							partsum += c.Val()
 						}
@@ -135,7 +118,7 @@ func main() {
 		// Print prevline
 		for i, part := range prevlineparts {
 			if part == nil {
-				if prevlinesym[i] != nil {
+				if prevlinesym[i] {
 					fmt.Print(yellow + "o" + reset)
 				} else {
 					fmt.Print(".")
@@ -152,18 +135,10 @@ func main() {
 		prevlinesym = curlinesym
 		prevlineparts = curlineparts
 
+
 		fmt.Print("\n")
 	}
-
-	// Find gears
-	var sumgearratio int
-	for _, sym := range syms {
-		if sym.sym == '*' && len(sym.adjacent_parts) == 2 {
-			sumgearratio += sym.adjacent_parts[0].Val() * sym.adjacent_parts[1].Val()
-		}
-	}
-
-	fmt.Println(sumgearratio)
+	fmt.Println(partsum)
 }
 
 // Part type
@@ -192,19 +167,4 @@ func (p *Part) Val() int {
 		log.Fatal(err)
 	}
 	return val
-}
-
-type Symbol struct {
-	sym rune
-	adjacent_parts []*Part
-}
-
-func NewSymbol(r rune) Symbol {
-	return Symbol{
-		sym: r,
-	}
-}
-
-func (s *Symbol) AddPart(part *Part) {
-	s.adjacent_parts = append(s.adjacent_parts, part)
 }
