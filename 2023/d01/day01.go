@@ -44,7 +44,15 @@ func main() {
 	var result int
 	for linescan.Scan() {
 		line := linescan.Text()
-		mat := rp.FindAllString(line, -1)
+		var mat []string
+		for st := 0; st < len(line); {
+			mind := rp.FindStringIndex(line[st:])
+			if mind == nil {
+				break
+			}
+			mat = append(mat, line[st + mind[0]: st + mind[1]])
+			st += mind[0] + 1
+		}
 		f, l := mat[0], mat[len(mat) - 1]
 
 		fmt.Println(line, " -> ", mat, "\n\t", f, l, "->", 10*istoint[mat[0]] + istoint[mat[len(mat) - 1]])
