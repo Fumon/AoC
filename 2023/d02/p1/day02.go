@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+var maxcolmap = map[string]int {
+	"red": 12,
+	"green": 13,
+	"blue": 14,
+}
+
 func main() {
 	f, err := os.Open("input")
 	if err != nil {
@@ -17,14 +23,14 @@ func main() {
 
 	ls := bufio.NewScanner(f)
 
-	var powersum int
+	var codeSumCount int
+	ScanLoop:
 	for ls.Scan() {
 		line := ls.Text()
 		gameandcounts := strings.Split(line, ":")
-		var maxcount = map[string]int {
-			"red": 0,
-			"green": 0,
-			"blue": 0,
+		gameid, err :=  strconv.Atoi(strings.Split(gameandcounts[0], "Game ")[1])
+		if err != nil {
+			log.Panic(err)
 		}
 		for _, group := range strings.Split(gameandcounts[1], "; ") {
 			for _, count := range strings.Split(strings.Trim(group, " "), ", ") {
@@ -33,16 +39,12 @@ func main() {
 				if err != nil {
 					log.Panic(err)
 				}
-
-				val, ok := maxcount[foo[1]]
-				if !ok {
-					maxcount[foo[1]] = counti
-				} else {
-					maxcount[foo[1]] = max(val, counti)
+				if counti > maxcolmap[foo[1]] {
+					continue ScanLoop
 				}
 			}
 		}
-		powersum += maxcount["red"] * maxcount["green"] * maxcount["blue"]
+		codeSumCount += gameid
 	}
-	fmt.Println(powersum)
+	fmt.Println(codeSumCount)
 }
