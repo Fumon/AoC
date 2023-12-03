@@ -1,0 +1,207 @@
+graph day16 {
+    AA [label="AA : 0"]
+    QE [label="QE : 3"]
+    TN [label="TN : 16"]
+    UX [label="UX : 0"]
+    HK [label="HK : 5"]
+    SK [label="SK : 14"]
+    HY [label="HY : 0"]
+    BK [label="BK : 0"]
+    BY [label="BY : 11"]
+    GR [label="GR : 0"]
+    OH [label="OH : 0"]
+    DC [label="DC : 0"]
+    YS [label="YS : 0"]
+    KP [label="KP : 0"]
+    LG [label="LG : 0"]
+    FE [label="FE : 4"]
+    NK [label="NK : 0"]
+    EU [label="EU : 0"]
+    OF [label="OF : 0"]
+    TW [label="TW : 0"]
+    GL [label="GL : 0"]
+    OU [label="OU : 0"]
+    BM [label="BM : 24"]
+    GA [label="GA : 0"]
+    EI [label="EI : 17"]
+    QN [label="QN : 25"]
+    ZX [label="ZX : 0"]
+    ME [label="ME : 0"]
+    CJ [label="CJ : 21"]
+    AX [label="AX : 0"]
+    LW [label="LW : 0"]
+    CQ [label="CQ : 18"]
+    KN [label="KN : 0"]
+    HS [label="HS : 0"]
+    RU [label="RU : 0"]
+    SZ [label="SZ : 6"]
+    AF [label="AF : 0"]
+    YI [label="YI : 0"]
+    HT [label="HT : 0"]
+    WV [label="WV : 0"]
+    TK [label="TK : 0"]
+    GH [label="GH : 0"]
+    CG [label="CG : 0"]
+    SP [label="SP : 0"]
+    XM [label="XM : 0"]
+    DN [label="DN : 0"]
+    XH [label="XH : 22"]
+    KI [label="KI : 20"]
+    OK [label="OK : 0"]
+    YH [label="YH : 0"]
+    UZ [label="UZ : 0"]
+    KE [label="KE : 0"]
+    VQ [label="VQ : 0"]
+    QU [label="QU : 0"]
+    WB [label="WB : 0"]
+    UW [label="UW : 0"]
+    SD [label="SD : 0"]
+    NS [label="NS : 23"]
+    KD [label="KD : 0"]
+    
+
+
+    QE -- OU
+    QE -- ME
+    QE -- UX
+    QE -- AX
+    QE -- TW
+    TN -- UW
+    TN -- CG
+    TN -- WB
+    UX -- AA
+    UX -- QE
+    HK -- HT
+    HK -- QU
+    HK -- TW
+    HK -- WV
+    HK -- OK
+    SK -- GH
+    SK -- GA
+    SK -- XM
+    HY -- LG
+    HY -- AA
+    BK -- SZ
+    BK -- AA
+    BY -- SP
+    BY -- HS
+    BY -- DN
+    BY -- KD
+    BY -- TK
+    GR -- FE
+    GR -- OK
+    OH -- BM
+    OH -- KE
+    DC -- AX
+    DC -- XH
+    YS -- XH
+    YS -- EU
+    KP -- KI
+    KP -- OF
+    LG -- FE
+    LG -- HY
+    FE -- RU
+    FE -- GR
+    FE -- YI
+    FE -- LG
+    FE -- ME
+    NK -- SD
+    NK -- BM
+    EU -- NS
+    EU -- YS
+    OF -- CJ
+    OF -- KP
+    TW -- HK
+    TW -- QE
+    GL -- AF
+    GL -- CQ
+    OU -- KN
+    OU -- QE
+    BM -- GH
+    BM -- NK
+    BM -- YH
+    BM -- OH
+    GA -- SK
+    GA -- SZ
+    EI -- ZX
+    EI -- AF
+    QN -- SD
+    ZX -- EI
+    ZX -- WB
+    ME -- QE
+    ME -- FE
+    CJ -- OF
+    CJ -- YI
+    CJ -- KD
+    AX -- DC
+    AX -- QE
+    LW -- AA
+    LW -- HT
+    CQ -- GL
+    CQ -- XM
+    KN -- SZ
+    KN -- OU
+    HS -- UZ
+    HS -- BY
+    RU -- TK
+    RU -- FE
+    SZ -- WV
+    SZ -- GA
+    SZ -- BK
+    SZ -- KE
+    SZ -- KN
+    AF -- GL
+    AF -- EI
+    YI -- FE
+    YI -- CJ
+    HT -- LW
+    HT -- HK
+    WV -- SZ
+    WV -- HK
+    TK -- BY
+    TK -- RU
+    GH -- BM
+    GH -- SK
+    CG -- TN
+    CG -- SP
+    AA -- HY
+    AA -- UX
+    AA -- VQ
+    AA -- LW
+    AA -- BK
+    SP -- BY
+    SP -- CG
+    XM -- SK
+    XM -- CQ
+    DN -- NS
+    DN -- BY
+    XH -- YS
+    XH -- QU
+    XH -- UZ
+    XH -- DC
+    KI -- UW
+    KI -- KP
+    OK -- HK
+    OK -- GR
+    YH -- VQ
+    YH -- BM
+    UZ -- XH
+    UZ -- HS
+    KE -- OH
+    KE -- SZ
+    VQ -- AA
+    VQ -- YH
+    QU -- HK
+    QU -- XH
+    WB -- TN
+    WB -- ZX
+    UW -- KI
+    UW -- TN
+    SD -- NK
+    SD -- QN
+    NS -- EU
+    NS -- DN
+    KD -- BY
+    KD -- CJ
+
+}
