@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	lines := u.Linewisefile("input")
+	lines := u.Linewisefile_chan("input")
 
 	fmt.Println("Total Points:\n", part1(lines))
 }
