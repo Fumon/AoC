@@ -9,11 +9,21 @@ import (
 
 func main() {
     fmt.Println(part1(form_input(u.Linewisefile_chan("input"))))
+	fmt.Println(part2(form_input2(u.Linewisefile_chan("input"))))
 }
 
 func form_input(lines <-chan string) (output [][]int) {
 	times := u.ParseNums(strings.Split(strings.Split((<-lines), ":")[1], " "))
 	distances := u.ParseNums(strings.Split(strings.Split((<-lines), ":")[1], " "))
+	for i, t := range times {
+		output = append(output, []int{t, distances[i]})
+	}
+	return
+}
+
+func form_input2(lines <-chan string) (output [][]int) {
+	times := u.ParseNums([]string{strings.ReplaceAll(strings.Split((<-lines), ":")[1], " ", "")})
+	distances := u.ParseNums([]string{strings.ReplaceAll(strings.Split((<-lines), ":")[1], " ", "")})
 	for i, t := range times {
 		output = append(output, []int{t, distances[i]})
 	}
@@ -26,7 +36,17 @@ func part1(races [][]int) (ways int) {
 		min, max := SolveQ(race[0], race[1])
 		
 		mway := (max - min) + 1
-		fmt.Println(mway)
+		ways *= mway
+	}
+	return
+}
+
+func part2(races [][]int) (ways int) {
+	ways = 1
+	for _, race := range races {
+		min, max := SolveQ(race[0], race[1])
+		
+		mway := (max - min) + 1
 		ways *= mway
 	}
 	return

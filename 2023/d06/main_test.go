@@ -12,3 +12,10 @@ func TestPart1(t *testing.T) {
 		t.Errorf("Part1 Failed: Expected %v and received %v", expected, received)
 	}
 }
+func TestPart2(t *testing.T) {
+	expected := 71503
+	received := part2(form_input2(u.Linewisefile_chan("testinput")))
+	if received != expected {
+		t.Errorf("Part1 Failed: Expected %v and received %v", expected, received)
+	}
+}
