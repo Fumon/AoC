@@ -20,3 +20,15 @@ func TestPart1_mine(t *testing.T) {
 		t.Errorf("Part1 failed: expected %v and got %v", expected, result)
 	}
 }
+
+func TestPart2(t *testing.T) {
+	expected := 5905
+	result := part2(u.Linewisefile_chan("testinput"))
+	if result != expected {
+		t.Errorf("Part2 failed: expected %v and got %v", expected, result)
+	}
+}
+
+func TestPart2_mine(t *testing.T) {
+	part2(u.Linewisefile_chan("testinput_mine"))
+}
