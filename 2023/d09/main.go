@@ -8,22 +8,88 @@ import (
 
 func main() {
 	fmt.Println(part1(u.Linewisefile_chan("input")))
+	fmt.Println(part2(u.Linewisefile_chan("input")))
 }
 
-func part1(lines <-chan string) int {
+func predict(future bool, lines <-chan string) int {
 	var sum_of_next int
 	for line := range lines {
 
+		
 		nums := u.ParseNums(strings.Split(line, " "))
+
+		x := -1
+		if future {
+			x = len(nums)
+		}
+
 		m := NewDynamic_calc_map(nums)
-		n :=  m.Get(dcmKey{len(nums), 0})
+		n :=  m.Get(dcmKey{
+			k:       [2]int{x, 0},
+			future: future,
+		})
+		fmt.Println(n)
 		sum_of_next += n
 	}
 	return sum_of_next
 }
 
-type dcmKey [2]int
-type Dynamic_calc_map map[dcmKey]int
+func part1(lines <-chan string) int {
+	return predict(true, lines)
+}
+
+func part2(lines <-chan string) int {
+	return predict(false, lines)
+}
+
+
+type dcmKey struct {
+	k [2]int
+	future bool
+}
+
+func (dk dcmKey) lr() dcmKey {
+	lrdelta := -1
+	if !dk.future {
+		lrdelta = 1
+	}
+	return dcmKey{
+		k:       [2]int{dk.k[0] + lrdelta, dk.k[1]},
+		future: dk.future,
+	}
+}
+
+
+func (dk dcmKey) u() dcmKey {
+	return dcmKey {
+		k:       [2]int{dk.k[0], dk.k[1] - 1},
+		future: dk.future,
+	}
+}
+
+func (dk dcmKey) ulr() dcmKey {
+	lrdelta := 1
+	if !dk.future {
+		lrdelta = -1
+	}
+	return dcmKey{
+		k:       [2]int{dk.k[0] + lrdelta, dk.k[1] - 1},
+		future: dk.future,
+	}
+}
+
+func (dk dcmKey) dlr() dcmKey {
+	lrdelta := -1
+	if !dk.future {
+		lrdelta = 1
+	}
+	return dcmKey{
+		k:       [2]int{dk.k[0] + lrdelta, dk.k[1] + 1},
+		future: dk.future,
+	}
+}
+
+type Dynamic_calc_map map[[2]int]int
 
 func NewDynamic_calc_map(a []int) Dynamic_calc_map {
 	out := make(Dynamic_calc_map)
@@ -34,42 +100,34 @@ func NewDynamic_calc_map(a []int) Dynamic_calc_map {
 }
 
 func (d Dynamic_calc_map) calc(key dcmKey) (out int) {
-	if key[1] == 0 {
-		out = d[key]
+	if key.k[1] == 0 {
+		out = d[key.k]
 		return
 	}
 
-	kupright := dcmKey{key[0] + 1, key[1] - 1}
-	kup := dcmKey{key[0], key[1] - 1}
-	
-	
-	vupright := d[kupright]
-	vup, ok := d[kup]
+	vup, ok := d[key.u().k]
 	if !ok {
-		vup = d.calc(kup)
+		vup = d.calc(key.u())
 	}
 
+	vupright := d[key.ulr().k]
+
 	out = vupright - vup
-	d[key] = out
+	d[key.k] = out
 	return
 }
 
 func (d Dynamic_calc_map) Get(key dcmKey) int {
-	v, ok := d[key]
+	v, ok := d[key.k]
 	if !ok {
-		kleft := dcmKey{key[0] - 1, key[1]}
-		kleftdown := dcmKey{key[0] - 1, key[1] + 1}
-		if key[0] == 0 {
-			panic("x is zero")
-		}
-		
-		vleft := d.calc(kleft)
-		if vleft == 0 && d.calc(dcmKey{kleft[0] - 1, kleft[1]}) == 0 {
+		vleft := d.calc(key.lr())
+		if vleft == 0 && d.calc(key.lr().lr()) == 0 {
 			return 0
 		}
-		vleftdown := d.Get(kleftdown)
+
+		vleftdown := d.Get(key.dlr())
 		v = vleftdown + vleft
-		d[key] = v 
+		d[key.k] = v 
 	}
 	return v
 }
