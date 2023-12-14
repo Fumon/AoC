@@ -8,6 +8,7 @@ import (
 
 func main() {
 	fmt.Println(part1(u.Linewisefile_chan("input")))
+	fmt.Println(part2(u.Linewisefile_chan("input")))
 }
 
 type Galaxy struct {
@@ -15,20 +16,24 @@ type Galaxy struct {
 }
 
 func part1(lines <-chan string) int {
+	// Adjust for columns
+	// Shortest Paths
+	sum_shortest_path := sum_shortest_paths_with_factor(lines, 2)
 
-	lines_2, line_len := func() (<-chan string, int) {
-		line1 := <-lines
-		nc := make(chan string, 3)
-		nc <- line1
-		go func() {
-			for line := range lines {
-				nc <- line
-			}
-			close(nc)
-		}()
+	return sum_shortest_path
+}
 
-		return nc, len(line1)
-	}()
+func part2(lines <-chan string) int {
+	// Adjust for columns
+	// Shortest Paths
+	sum_shortest_path := sum_shortest_paths_with_factor(lines, 1_000_000)
+
+	return sum_shortest_path
+}
+
+func sum_shortest_paths_with_factor(lines <-chan string, growthfactor int) int {
+	addmul := (growthfactor - 1)
+	lines_2, line_len := PeekAtFirstLineWidth(lines)
 
 	var galaxies []*Galaxy
 	var galaxy_columns = make(map[int][]*Galaxy)
@@ -43,7 +48,7 @@ func part1(lines <-chan string) int {
 				if c == '#' {
 					line_galaxy_count++
 					column_counts[i]++
-					g := &Galaxy{[2]int{i, linecount + len(blank_rows)}}
+					g := &Galaxy{[2]int{i, linecount + (addmul * len(blank_rows))}}
 					galaxies = append(galaxies, g)
 					galaxy_columns[i] = append(galaxy_columns[i], g)
 				}
@@ -56,7 +61,6 @@ func part1(lines <-chan string) int {
 		}
 	}
 
-	// Adjust for columns
 	{
 		var blank_column_count int
 		for i, count := range column_counts {
@@ -64,13 +68,12 @@ func part1(lines <-chan string) int {
 				blank_column_count++
 			} else {
 				for _, gal := range galaxy_columns[i] {
-					gal.position[0] += blank_column_count
+					gal.position[0] += addmul * blank_column_count
 				}
 			}
 		}
 	}
 
-	// Shortest Paths
 	var sum_shortest_path int
 	{
 		var pathcount = (len(galaxies) * (len(galaxies) - 1)) / 2
@@ -81,7 +84,7 @@ func part1(lines <-chan string) int {
 			go func() {
 				x1, y1 := root.position[0], root.position[1]
 				for _, l := range leaves {
-					sumch <- int(math.Abs(float64(l.position[0] - x1)) + math.Abs(float64(l.position[1] - y1)))
+					sumch <- int(math.Abs(float64(l.position[0]-x1)) + math.Abs(float64(l.position[1]-y1)))
 				}
 			}()
 		}
@@ -91,6 +94,19 @@ func part1(lines <-chan string) int {
 		}
 		close(sumch)
 	}
-
 	return sum_shortest_path
+}
+
+func PeekAtFirstLineWidth(lines <-chan string) (<-chan string, int) {
+	line1 := <-lines
+	nc := make(chan string, 3)
+	nc <- line1
+	go func() {
+		for line := range lines {
+			nc <- line
+		}
+		close(nc)
+	}()
+
+	return nc, len(line1)
 }
