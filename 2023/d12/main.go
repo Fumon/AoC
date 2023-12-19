@@ -18,13 +18,6 @@ func part1(lines <-chan string) int {
 		run_counts := u.ParseNums(strings.Split(sp[1], ","))
 		gs := NewGamespace([]byte(sp[0]))
 
-		_, _, rc := count_runs(gs.Input)
-		if len(rc) > 0 {
-			if rc[len(rc) - 1] > run_counts[len(run_counts)-1] {
-				continue
-			}
-		}
-
 		// // Explore solution space
 		// var permut Permut_Instance
 		// copy(permut, gs.Input)
@@ -85,38 +78,16 @@ func NewGamespace(input []byte) Gamespace {
 }
 
 
-// -1 is fail
-// 0 is partial pass
 // 1 is pass
 func validate_permutation(permut Permut_Instance, run_counts []int) (int) {
-	prerc, _, rc := count_runs(permut)
+	_, _, rc := count_runs(permut)
 
-	
-
-	if len(prerc) > len(run_counts) {
-		return -1
-	}
-
-	
-	var i int
-	for i = len(prerc) - 1; i >= 0; i-- {
-		if prerc[i] > run_counts[i] {
-			return -1
-		} else if prerc[i] == run_counts[i] {
-			break
-		} else {
-			return 0
-		}
-	}
-
-	if len(rc) < len(run_counts) {
+	if len(rc) != len(run_counts) {
 		return 0
 	}
 
-	for j := i + 1; j < len(run_counts); j++ {
-		if rc[j] > run_counts[j] {
-			return -1
-		} else if rc[j] < run_counts[j] {
+	for j := 0; j < len(run_counts); j++ {
+		if rc[j] != run_counts[j] {
 			return 0
 		}
 	}
