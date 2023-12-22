@@ -13,6 +13,7 @@ func Part1(lines <-chan string) int {
 	var mirrored_row_count int
 	var mirrored_column_count int
 
+	var puzzcount int = 1
 	// outer:
 	for puzzchan := range u.LineDelimiter(lines, "") {
 		var rowcount int
@@ -70,7 +71,7 @@ func Part1(lines <-chan string) int {
 		columnmirrorloop:
 		for mirror_index, column := range columns {
 			if mirror_index > 0 && string(column) == string(columns[mirror_index - 1]) {
-				for i, j := mirror_index - 2, mirror_index + 1; i > 0 && j < len(columns); i, j = i - 1, j + 1 {
+				for i, j := mirror_index - 2, mirror_index + 1; i >= 0 && j < len(columns); i, j = i - 1, j + 1 {
 					if string(columns[i]) != string(columns[j]) {
 						continue columnmirrorloop
 					}
@@ -97,6 +98,9 @@ func Part1(lines <-chan string) int {
 				mirrored_row_count += largest_row_index
 			}
 		}
+
+		fmt.Println(puzzcount, ": Rows: ", row_found_indicies, " Columns: ", column_found_indicies)
+		puzzcount++
 	}
 
 	return mirrored_column_count + (100 * mirrored_row_count)
