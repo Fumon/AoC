@@ -13,3 +13,7 @@ func Assert[T comparable](t *testing.T, e, r T) {
 func TestPart1(t *testing.T) {
 	Assert(t, 136, Part1(u.Linewisefile_chan("testinput")))
 }
+
+func TestPart2(t *testing.T) {
+	Assert(t, 64, Part2(u.Linewisefile_chan("testinput")))
+}
