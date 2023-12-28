@@ -8,10 +8,20 @@ import (
 
 func main() {
 	fmt.Println("Part1:", Part1(u.Linewisefile_chan("input")))
+	fmt.Println("Part2:", Part2(u.Linewisefile_chan("input")))
+
 }
 
 func Part1(lines <-chan string) int {
 
+	contraption, bounds := parse_contraption(lines)
+
+	output := get_energized_counts(contraption, bounds, twodvec{}, twodvec{1, 0})
+
+	return output
+}
+
+func parse_contraption(lines <-chan string) ([][]byte, twodrect) {
 	var contraption [][]byte
 	for line := range lines {
 		contraption = append(contraption, []byte(line))
@@ -26,7 +36,10 @@ func Part1(lines <-chan string) int {
 			y: height - 1,
 		},
 	}
+	return contraption, bounds
+}
 
+func get_energized_counts(contraption [][]byte, bounds twodrect, entry, direction twodvec) int {
 	var lightmap = make(map[[2]twodvec]uint8)
 	var lightmap_lck sync.RWMutex
 
@@ -45,7 +58,6 @@ func Part1(lines <-chan string) int {
 			lightmap[[2]twodvec{coords, dir}]++
 			lightmap_lck.Unlock()
 
-			// Determine where to go next
 			ch := contraption[coords.y][coords.x]
 			switch ch {
 			case '.':
@@ -80,7 +92,7 @@ func Part1(lines <-chan string) int {
 	}
 
 	beamwait.Add(1)
-	go new_beam(twodvec{}, twodvec{1, 0})
+	go new_beam(entry, direction)
 
 	beamwait.Wait()
 
@@ -89,7 +101,8 @@ func Part1(lines <-chan string) int {
 		energized_counts[k[0]]++
 	}
 
-	return len(energized_counts)
+	var output = len(energized_counts)
+	return output
 }
 
 type twodvec struct {
@@ -136,4 +149,54 @@ type twodrect struct {
 
 func (rect *twodrect) inside(pt twodvec) bool {
 	return rect.ulc.x <= pt.x && pt.x <= rect.lrc.x && rect.ulc.y <= pt.y && pt.y <= rect.lrc.y
+}
+
+func Part2(lines <-chan string) int {
+
+	contraption, bounds := parse_contraption(lines)
+
+	var enerchan = make(chan int, 6)
+	var donechan = make(chan int, 1)
+
+	var launchcount int = (bounds.lrc.x * 2 + bounds.lrc.y * 2)
+	tdir := twodvec{0, 1}
+	bdir := twodvec{0, -1}
+	ldir := twodvec{1, 0}
+	rdir := twodvec{-1, 0}
+
+	go func() {
+		var max int
+		for launchcount > 0 {
+			newval := <-enerchan
+			launchcount--
+			if newval > max {
+				max = newval
+			}
+		}
+		close(enerchan)
+		donechan <- max
+		close(donechan)
+	}()
+
+	launch := func(coords, dir twodvec) {
+		enerchan <- get_energized_counts(contraption, bounds, coords, dir)
+	}
+
+	for i := 0; i < bounds.lrc.x; i++ {
+		// Top and bottom
+		top := twodvec{i, 0}
+		bottom := twodvec{i, bounds.lrc.y - 1}
+		go launch(top, tdir)
+		go launch(bottom, bdir)
+	}
+
+	for i := 0; i < bounds.lrc.y; i++ {
+		// Top and bottom
+		left := twodvec{0, i}
+		right := twodvec{bounds.lrc.x - 1, i}
+		go launch(left, ldir)
+		go launch(right, rdir)
+	}
+
+	return <-donechan
 }
