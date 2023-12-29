@@ -45,8 +45,35 @@ func Part1(lines <-chan string) int {
 	return area + len(dug) / 2 + 1
 }
 
-func Part2(lines <-chan string) int {
-	return 0
+var byte_to_offset = map[byte][2]int64{
+	'3': {0, -1},
+	'1': {0, 1},
+	'2': {-1, 0},
+	'0': {1, 0},
+}
+
+func Part2(lines <-chan string) int64 {
+	var area_running int64
+	var cur = [2]int64{0,0}
+	var dug int64
+	var prev = cur
+
+	for line := range lines {
+		dir, run := parse_command2(line)
+		offset := byte_to_offset[dir]
+		prev = cur
+		cur[0] += offset[0]*run
+		cur[1] += offset[1]*run
+		area_running += (prev[0] * cur[1] - cur[0] * prev[1])
+		dug += run
+	}
+
+	area := area_running / 2
+	if area < 0 {
+		area = -area
+	}
+
+	return area + dug / 2 + 1
 }
 
 var dir_to_offset = map[byte][2]int{
@@ -75,6 +102,15 @@ func parse_command(line string) (dir byte, run int, color Color) {
 	}
 	return
 }
+
+func parse_command2(line string) (dir byte, run int64) {
+	comp := strings.Split(line, " ")
+	run, _ = strconv.ParseInt(comp[2][2:7], 16, 64)
+	dir = byte(comp[2][7])
+
+	return
+}
+
 
 type Square_Bounds struct {
 	xmin, ymin int
