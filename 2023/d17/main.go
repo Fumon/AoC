@@ -8,6 +8,7 @@ import (
 
 func main() {
 	fmt.Println(Part1(u.Linewisefile_slice("input")))
+	fmt.Println(Part2(u.Linewisefile_slice("input")))
 }
 
 type node_map struct {
@@ -47,13 +48,82 @@ var OffsetMap = map[byte][2]int{
 	'W': {1, 0},
 }
 
+// P1 Stencil:
+//
+//
+
 func Part1(lines []string) int {
-	var width = len(lines[0])
-	var height = len(lines)
 
 	// Build graph
+	nodes, _, _, end := populate_graph(lines, 1, 3)
+
+	return Shortest_Path(nodes, end)
+
+	// print_path(end, lines)
+}
+
+func Part2(lines []string) int {
+		// Build graph
+		nodes, _, _, end := populate_graph(lines, 4, 10)
+
+		return Shortest_Path(nodes, end)
+}
+
+func Shortest_Path(nodes node_map, end *node) int {
+	unvisited := NewNodeHeap()
+	heap.Init(unvisited)
+	for _, nodep := range nodes.lookup {
+		heap.Push(unvisited, nodep)
+	}
+
+	for !end.visited {
+		cur := heap.Pop(unvisited).(*node)
+
+		for _, edge := range cur.edges_out {
+			neighbour := edge.end
+			if neighbour.visited {
+				continue
+			}
+
+			m_distance := cur.distance + edge.cost
+			if m_distance < neighbour.distance {
+				neighbour.prev = cur
+				unvisited.UpdateNode(neighbour, m_distance)
+			}
+		}
+		cur.visited = true
+	}
+	return end.distance
+}
+
+// func print_path(end *node, lines []string) {
+// 	var shortpath = make(map[[2]int]byte)
+
+// 	{
+// 		cur := end
+// 		for cur != start {
+// 			cur = cur.prev
+// 			shortpath[[2]int{cur.name.x, cur.name.y}] = '#'
+// 		}
+
+// 		for y := 0; y < height; y++ {
+// 			for x := 0; x < width; x++ {
+// 				if _, ok := shortpath[[2]int{x, y}]; ok {
+// 					fmt.Print("#")
+// 				} else {
+// 					fmt.Print(string(lines[y][x]))
+// 				}
+// 			}
+// 			fmt.Print("\n")
+// 		}
+// 	}
+// }
+
+func populate_graph(lines []string, min_turn uint8, max_straight uint8) (node_map, []edge, *node, *node) {
 	var nodes = NewNodeMap()
 	var edges []edge
+	var width = len(lines[0])
+	var height = len(lines)
 	for y, line := range lines {
 		for x, ch := range []byte(line) {
 			cost := int(ch & 0xF)
@@ -70,7 +140,7 @@ func Part1(lines []string) int {
 						})
 
 						turns := TurnMap[dir]
-						for sidelevel := uint8(1); sidelevel < 4; sidelevel++ {
+						for sidelevel := uint8(min_turn); sidelevel <= max_straight; sidelevel++ {
 
 							e_node := nodes.Get(&node_name{
 								x:     new_x,
@@ -85,7 +155,6 @@ func Part1(lines []string) int {
 								level: sidelevel,
 							})
 
-							// Create Edges
 							edges = append(edges, edge{
 								start: e_node,
 								end:   to_1,
@@ -103,49 +172,30 @@ func Part1(lines []string) int {
 					}
 
 					{
-						to_2 := nodes.Get(&node_name{
-							x:     x,
-							y:     y,
-							dir:   dir,
-							level: 2,
-						})
+						for from_level := uint8(1); from_level < max_straight; from_level++ {
+							from := nodes.Get(&node_name{
+								x:     new_x,
+								y:     new_y,
+								dir:   dir,
+								level: from_level,
+							})
 
-						from_1 := nodes.Get(&node_name{
-							x:     new_x,
-							y:     new_y,
-							dir:   dir,
-							level: 1,
-						})
+							to := nodes.Get(&node_name{
+								x:     x,
+								y:     y,
+								dir:   dir,
+								level: from_level+1,
+							})
 
-						edges = append(edges, edge{
-							start: from_1,
-							end:   to_2,
-							cost:  cost,
-						})
-						from_1.edges_out = append(from_1.edges_out, &edges[len(edges)-1])
-					}
+						
 
-					{
-						to_3 := nodes.Get(&node_name{
-							x:     x,
-							y:     y,
-							dir:   dir,
-							level: 3,
-						})
-
-						from_2 := nodes.Get(&node_name{
-							x:     new_x,
-							y:     new_y,
-							dir:   dir,
-							level: 2,
-						})
-
-						edges = append(edges, edge{
-							start: from_2,
-							end:   to_3,
-							cost:  cost,
-						})
-						from_2.edges_out = append(from_2.edges_out, &edges[len(edges)-1])
+							edges = append(edges, edge{
+								start: from,
+								end:   to,
+								cost:  cost,
+							})
+							from.edges_out = append(from.edges_out, &edges[len(edges)-1])
+						}
 					}
 				}
 			}
@@ -171,7 +221,7 @@ func Part1(lines []string) int {
 			}),
 			cost: int(lines[0][1] & 0xF),
 		})
-		start.edges_out = append(start.edges_out, &edges[len(edges) - 1])
+		start.edges_out = append(start.edges_out, &edges[len(edges)-1])
 
 		edges = append(edges, edge{
 			start: start,
@@ -183,7 +233,7 @@ func Part1(lines []string) int {
 			}),
 			cost: int(lines[1][0] & 0xF),
 		})
-		start.edges_out = append(start.edges_out, &edges[len(edges) - 1])
+		start.edges_out = append(start.edges_out, &edges[len(edges)-1])
 	}
 
 	end := nodes.Get(&node_name{
@@ -193,7 +243,7 @@ func Part1(lines []string) int {
 		level: 0,
 	})
 	{
-		for start_level := uint8(1); start_level < 4; start_level++ {
+		for start_level := uint8(min_turn); start_level <= max_straight; start_level++ {
 			lrc_e := nodes.Get(&node_name{
 				x:     width - 1,
 				y:     height - 1,
@@ -213,117 +263,68 @@ func Part1(lines []string) int {
 				end:   end,
 				cost:  0,
 			})
-			lrc_e.edges_out = append(lrc_e.edges_out, &edges[len(edges) - 1])
+			lrc_e.edges_out = append(lrc_e.edges_out, &edges[len(edges)-1])
 
 			edges = append(edges, edge{
 				start: lrc_s,
 				end:   end,
 				cost:  0,
 			})
-			lrc_s.edges_out = append(lrc_s.edges_out, &edges[len(edges) -1])
+			lrc_s.edges_out = append(lrc_s.edges_out, &edges[len(edges)-1])
 		}
 	}
 
-	unvisited := NewNodeHeap()
-	heap.Init(unvisited)
-	for _, nodep := range nodes.lookup {
-		heap.Push(unvisited, nodep)
-	}
-
-	for unvisited.Len() > 0 {
-		cur := heap.Pop(unvisited).(*node)
-		// fmt.Print(cur.name, " ", cur.distance)
-
-		for _, edge := range cur.edges_out {
-			// fmt.Print(edge)
-			neighbour := edge.end
-			if neighbour.visited {
-				continue
-			}
-
-			m_distance := cur.distance + edge.cost
-			if m_distance < neighbour.distance {
-				neighbour.prev = cur
-				unvisited.UpdateNode(neighbour, m_distance)
-			}
-		}
-		// fmt.Print("\n")
-
-		cur.visited = true
-	}
-
-	// var shortpath = make(map[[2]int]byte)
-
-	// {
-	// 	cur := end
-	// 	for cur != start {
-	// 		cur = cur.prev
-	// 		shortpath[[2]int{cur.name.x, cur.name.y}] = '#'
-	// 	}
-
-	// 	for y := 0; y < height; y++ {
-	// 		for x := 0; x < width; x++ {
-	// 			if _, ok := shortpath[[2]int{x, y}]; ok {
-	// 				fmt.Print("#")
-	// 			} else {
-	// 				fmt.Print(string(lines[y][x]))
-	// 			}
-	// 		}
-	// 		fmt.Print("\n")
-	// 	}
-	// }
-
-	return end.distance
+	return nodes, edges, start, end
 }
 
 type NodeHeap struct {
-    nodes []*node
-    indexMap map[*node]int
+	nodes    []*node
+	indexMap map[*node]int
 }
 
 func (h NodeHeap) Len() int { return len(h.nodes) }
 
 func (h NodeHeap) Less(i, j int) bool {
-    return h.nodes[i].distance < h.nodes[j].distance
+	return h.nodes[i].distance < h.nodes[j].distance
 }
 
 func (h NodeHeap) Swap(i, j int) {
-    h.nodes[i], h.nodes[j] = h.nodes[j], h.nodes[i]
-    h.indexMap[h.nodes[i]] = i
-    h.indexMap[h.nodes[j]] = j
+	h.nodes[i], h.nodes[j] = h.nodes[j], h.nodes[i]
+	h.indexMap[h.nodes[i]] = i
+	h.indexMap[h.nodes[j]] = j
 }
 
 func (h *NodeHeap) Push(x interface{}) {
-    n := x.(*node)
-    h.indexMap[n] = len(h.nodes)
-    h.nodes = append(h.nodes, n)
+	n := x.(*node)
+	h.indexMap[n] = len(h.nodes)
+	h.nodes = append(h.nodes, n)
 }
 
 func (h *NodeHeap) Pop() interface{} {
-    old := h.nodes
-    n := len(old)
-    node := old[n-1]
-    h.nodes = old[0 : n-1]
-    delete(h.indexMap, node)
-    return node
+	old := h.nodes
+	n := len(old)
+	node := old[n-1]
+	h.nodes = old[0 : n-1]
+	delete(h.indexMap, node)
+	return node
 }
 
 func NewNodeHeap() *NodeHeap {
-    return &NodeHeap{
-        nodes: []*node{},
-        indexMap: make(map[*node]int),
-    }
+	return &NodeHeap{
+		nodes:    []*node{},
+		indexMap: make(map[*node]int),
+	}
 }
 
 // UpdateNode modifies a node's distance and reestablishes the heap invariants.
 func (h *NodeHeap) UpdateNode(n *node, distance int) {
-    index, ok := h.indexMap[n]
-    if !ok {
-        // Node not in heap
-        return
-    }
-    n.distance = distance
-    heap.Fix(h, index)
+	index, ok := h.indexMap[n]
+	if !ok {
+		// Node not in heap
+		return
+	}
+	n.distance = distance
+	heap.Fix(h, index)
 }
 
 type node_name struct {
@@ -343,13 +344,13 @@ type edge struct {
 }
 
 func (e *edge) String() string {
-	return fmt.Sprint("{",e.cost, "|", e.start.name, " -> ", e.end.name,"}")
+	return fmt.Sprint("{", e.cost, "|", e.start.name, " -> ", e.end.name, "}")
 }
 
 type node struct {
-	name *node_name
+	name      *node_name
 	visited   bool
 	distance  int
-	prev *node
+	prev      *node
 	edges_out []*edge
 }
