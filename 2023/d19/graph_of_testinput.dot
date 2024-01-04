@@ -1,0 +1,122 @@
+digraph G {
+    node [shape = diamond;];
+    rankdir = TB;
+    ranksep = "equally";
+    
+    subgraph {
+        rank = min;
+        in [shape = circle;];
+        in -> in_1;
+        in_1 [label = "s<1351";];
+    }
+    in_1:s -> px:n;
+    in_1:e -> qqz:n;
+    
+    subgraph {
+        rank = same;
+        px [shape = circle;];
+        px_1 [label = "a<2006";];
+        px_2 [label = "m>2090";];
+        px:e -> px_1:w;
+        px_1:e -> px_2:w;
+    }
+    px_1:s -> qkq:n;
+    px_2:s -> Accepted;
+    px_2:e -> rfg:n;
+    
+    subgraph {
+        rank = same;
+        qqz;
+        qqz_1 [label = "s>2770";];
+        qqz:e -> qqz_1:w;
+        qqz_2 [label = "m<1801";];
+        qqz_1:e -> qqz_2:w;
+    }
+    qqz_1:s -> qs:n;
+    qqz_2:s -> hdj:n;
+    qqz_2:e -> Rejected;
+    
+    subgraph {
+        rank = same;
+        qkq;
+        qkq_1 [label = "x<1416";];
+        qkq:e -> qkq_1:w;
+    }
+    qkq_1:e -> crn:n;
+    qkq_1:s -> Accepted;
+    
+    subgraph {
+        rank = same;
+        rfg;
+        rfg_1 [label = "s<537";];
+        rfg_2 [label = "x>2440";];
+        rfg:e -> rfg_1:w;
+        rfg_1:e -> rfg_2:w;
+    }
+    rfg_1:s -> gd:n;
+    rfg_2:s -> Rejected;
+    rfg_2:e -> Accepted;
+    
+    subgraph {
+        rank = same;
+        qs;
+        qs_1 [label = "s>3448";];
+        qs:e -> qs_1:w;
+    }
+    qs_1:s -> Accepted;
+    qs_1:e -> lnx:n;
+    
+    subgraph {
+        rank = same;
+        hdj;
+        hdj_1 [label = "m>838";];
+        hdj:e -> hdj_1:w;
+    }
+    hdj_1:s -> Accepted;
+    hdj_1:e -> pv:n;
+    
+    subgraph {
+        rank = same;
+        pv;
+        pv_1 [label = "a>1716";];
+        pv:e -> pv_1:w;
+    }
+    pv_1:s -> Rejected;
+    pv_1:e -> Accepted;
+    
+    subgraph {
+        rank = same;
+        crn;
+        crn_1 [label = "x>2662";];
+        crn:e -> crn_1:w;
+    }
+    crn_1:s -> Accepted;
+    crn_1:e -> Rejected;
+    
+    subgraph {
+        rank = same;
+        gd;
+        gd_1 [label = "a>3333";];
+        gd:e -> gd_1:w;
+    }
+    gd_1:s -> Rejected;
+    gd_1:e -> Rejected;
+    
+    subgraph {
+        rank = same;
+        lnx;
+        lnx_1 [label = "m>1548";];
+        lnx:e -> lnx_1:w;
+    }
+    lnx_1:s -> Accepted;
+    lnx_1:e -> Accepted;
+    
+    subgraph {
+        rank = max;
+        Accepted;
+        Rejected;
+    }
+    
+    // edge [style = invis;];
+    // in -> px -> qqz -> qkq -> rfg -> qs -> hdj -> pv -> crn -> gd -> lnx;
+}
