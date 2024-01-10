@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"fuaoc2023/day21/u"
+	"os"
 )
 
 func main() {
@@ -75,17 +76,41 @@ func Part2(steps int, lines <-chan string) int {
 
 	var curmap = make(map[point]struct{})
 	var nextmap = make(map[point]struct{})
+	var front []point
 	curmap[elfstart] = struct{}{}
+	front = append(front, elfstart)
+
+	f, _ := os.Create("131steps.csv")
+	// fmt.Fprintf(f, "%d,%d\n", 0, len(curmap))
+
 	for step := 1; step <= steps; step++ {
-		for p := range curmap {
+		var nextfront []point
+		
+		for _, p := range front {
 			for _, pa := range p.around() {
-				if playboard[((pa[0] % linecount) + linecount) % linecount][((pa[1] % width) + width) % width] {
-					nextmap[pa] = struct{}{}
+				if _, in := nextmap[pa]; !in {
+					if playboard[((pa[0] % linecount) + linecount) % linecount][((pa[1] % width) + width) % width] {
+						nextmap[pa] = struct{}{}
+						nextfront = append(nextfront, pa)
+					}
 				}
 			}
 		}
-		curmap, nextmap = nextmap, make(map[point]struct{}, len(nextmap))
+
+		curmap, nextmap = nextmap, curmap
+		front = nextfront
+		tt := step - 65
+		if tt >= 0 && tt % 131 == 0 {
+
+			fmt.Fprintf(f, "%d,%d\n", tt/131, len(curmap))
+		}
 	}
+
+	// one_ninety_six_count := len(curmap)
+	// num_iterations := (steps - 196)/393
+	// total := ((num_iterations)*2) - 1
+	// total *= total
+	// total *= one_ninety_six_count
 
 	return len(curmap)
 }

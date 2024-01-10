@@ -16,9 +16,3 @@ type Bounds struct {
 func (b Bounds) check(p point) bool {
 	return (p[0] >= 0 && p[0] < b.width) && (p[1] >= 0 && p[1] < b.height)
 }
-func (b Bounds) wrap(p point) point {
-	return point{
-		((p[0] % b.height) + b.height) % b.height,
-		((p[1] % b.width) + b.width) % b.width,
-	}
-}

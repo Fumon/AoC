@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pixel Expansion</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="myCanvas" width="393" height="393"></canvas>
+    <button id="expandButton">Expand</button>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        const size = 393;
+        let pixels = new Set();
+
+        // Initialize with a single black pixel in the middle
+        function init() {
+            const mid = Math.floor(size / 2);
+            pixels.add(`${mid},${mid}`);
+            drawPixels();
+        }
+
+        // Draw the pixels on the canvas
+        function drawPixels() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, size, size);
+            ctx.fillStyle = 'black';
+
+            pixels.forEach(p => {
+                const [x, y] = p.split(',').map(Number);
+                ctx.fillRect(x, y, 1, 1);
+            });
+        }
+
+        // Update the set of pixels
+        function updatePixels() {
+            let newPixels = new Set();
+
+            pixels.forEach(p => {
+                const [x, y] = p.split(',').map(Number);
+                if (x > 0) newPixels.add(`${x-1},${y}`);
+                if (x < size-1) newPixels.add(`${x+1},${y}`);
+                if (y > 0) newPixels.add(`${x},${y-1}`);
+                if (y < size-1) newPixels.add(`${x},${y+1}`);
+            });
+
+            pixels = newPixels;
+            drawPixels();
+        }
+
+        document.getElementById('expandButton').addEventListener('click', updatePixels);
+
+        init(); // Initialize the canvas
+    </script>
+</body>
+</html>
