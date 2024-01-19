@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"strconv"
 	"strings"
 )
@@ -34,11 +35,11 @@ func (p *Point) EqXY(oth *Point) bool {
 	return p[0] == oth[0] && p[1] == oth[1]
 }
 
-/// A Brick in 3D space.
-/// The Start point will always be lower than the End point if they aren't the same height
+// / A Brick in 3D space.
+// / The Start point will always be lower than the End point if they aren't the same height
 type Brick struct {
 	Start Point
-	End Point
+	End   Point
 }
 
 func ParseBrick(s string) Brick {
@@ -50,7 +51,7 @@ func ParseBrick(s string) Brick {
 	}
 }
 
-/// Determines if a brick is horizontally spread or not
+// / Determines if a brick is horizontally spread or not
 func (b *Brick) IsHori() bool {
 	return b.Start.Z() == b.End.Z()
 }
@@ -63,7 +64,7 @@ func (b *Brick) Top() uint16 {
 	return b.End.Z()
 }
 
-/// Returns the cells that are taken up by this brick
+// / Returns the cells that are taken up by this brick
 func (b *Brick) Cubes() (o []Point) {
 	o = append(o, b.Start)
 	var i int
@@ -83,52 +84,95 @@ func (b *Brick) Cubes() (o []Point) {
 	return
 }
 
-func (b *Brick) IsColliding(oth *Brick) bool {
-	var b_candidates []Point
+func (b *Brick) Columns() (o []Point) {
 	if b.IsHori() {
-		b_candidates = append(b_candidates, )
+		return b.Cubes()
 	} else {
-		b_candidates = append(b_candidates, b.)
+		return []Point{b.Start}
 	}
+}
 
-	return true
+type BrickStack []*Brick
+
+type Brick_Position struct {
+	Position int
+	Array    *BrickStack
+}
+
+type Brick_s_Positions []Brick_Position
+func (bsp Brick_s_Positions) Highest_Position() int {
+	var high int = bsp[0].Position
+	for _, bp := range bsp {
+		if bp.Position > high {
+			high = bp.Position
+		}
+	}
+	return high
 }
 
 type RestingBrick struct {
-	Brick
-	Holding map[*RestingBrick]struct{}
+	Top uint16
 	RestingOn map[*RestingBrick]struct{}
+	HoldingUp map[*RestingBrick]struct{}
 }
 
-func NewRestingBrick(b Brick) RestingBrick {
-	return RestingBrick{
-		Brick:     b,
-		Holding:   make(map[*RestingBrick]struct{}, 3),
-		RestingOn: make(map[*RestingBrick]struct{}, 3),
+type Brick_Position_Heap struct {
+	BPs  map[*Brick]Brick_s_Positions
+	Heap []*Brick
+
+}
+
+func NewBrickPositionHeap(bps map[*Brick]Brick_s_Positions) Brick_Position_Heap {
+	out := Brick_Position_Heap{
+		BPs:  bps,
+		Heap: make([]*Brick, 0, len(bps)),
 	}
-}
-
-type RestingBrickStack struct {
-	Collision_map map[uint16][]*RestingBrick
-	Resting_stack []RestingBrick
-	resting_count int
-}
-
-func (r *RestingBrickStack) InsertBrick(b Brick) {
-	r.Resting_stack = append(r.Resting_stack, NewRestingBrick(b))
-	rbrick_ref := &r.Resting_stack[r.resting_count]
-	r.resting_count++
-
-	r.Collision_map[rbrick_ref.Top()] = append(r.Collision_map[rbrick_ref.Top()], rbrick_ref)
-}
-
-func (r *RestingBrickStack) Insert_On_Collision(b *Brick) (was_insert bool) {
-	collision_candidates := r.Collision_map[b.Bottom()]
-	if len(collision_candidates) < 1 {
-		return false
+	heap.Init(&out)
+	for k := range bps {
+		heap.Push(&out, k)
 	}
+	return out
+}
 
-	
+// Len is the number of elements in the collection.
+func (bph *Brick_Position_Heap) Len() int {
+	return len(bph.Heap)
+}
 
-	return
-} 
+// Less reports whether the element with index i
+// must sort before the element with index j.
+//
+// If both Less(i, j) and Less(j, i) are false,
+// then the elements at index i and j are considered equal.
+// Sort may place equal elements in any order in the final result,
+// while Stable preserves the original input order of equal elements.
+//
+// Less must describe a transitive ordering:
+//   - if both Less(i, j) and Less(j, k) are true, then Less(i, k) must be true as well.
+//   - if both Less(i, j) and Less(j, k) are false, then Less(i, k) must be false as well.
+//
+// Note that floating-point comparison (the < operator on float32 or float64 values)
+// is not a transitive ordering when not-a-number (NaN) values are involved.
+// See Float64Slice.Less for a correct implementation for floating-point values.
+func (bph *Brick_Position_Heap) Less(i int, j int) bool {
+	a := bph.BPs[bph.Heap[i]].Highest_Position()
+	b := bph.BPs[bph.Heap[j]].Highest_Position()
+	return a < b
+}
+
+// Swap swaps the elements with indexes i and j.
+func (bph *Brick_Position_Heap) Swap(i int, j int) {
+	bph.Heap[i], bph.Heap[j] = bph.Heap[j], bph.Heap[i]
+}
+
+func (bph *Brick_Position_Heap) Push(x any) {
+	bph.Heap = append(bph.Heap, x.(*Brick))
+}
+
+func (bph *Brick_Position_Heap) Pop() any {
+	old := bph.Heap
+	n := len(old)
+	x := old[n-1]
+	bph.Heap = old[0 : n-1]
+	return x
+}
