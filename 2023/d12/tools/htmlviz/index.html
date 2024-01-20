@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Segment Visualizer</title>
+<style>
+  #gridContainer {
+    display: flex;
+    border: 1px solid #000;
+    margin-top: 10px;
+    user-select: none;
+  }
+  #segmentContainer {
+    position: relative;
+  }
+  .cell {
+    width: 30px;
+    height: 30px;
+    border-right: 1px solid #000;
+    box-sizing: border-box;
+    background-color: white;
+  }
+  .cell:last-child {
+    border-right: none;
+  }
+  .segment {
+    height: 30px;
+    background-color: black;
+    cursor: pointer;
+    position: absolute;
+  }
+</style>
+</head>
+<body>
+Number of columns: <input type="number" id="numColumns" min="1" /><br/>
+Segment widths (comma separated): <input type="text" id="segmentWidths" /><br/>
+<button onclick="initializeGrid()">Create Grid</button>
+<div id="gridContainer"></div>
+<div id="segmentContainer"></div>
+
+<script>
+let segments = [];
+let segment_positions = [];
+let gridSize;
+let draggingSegment = null;
+let draggingOffset = 0;
+
+const grid_width = 30;
+
+function initializeGrid() {
+  const numColumns = parseInt(document.getElementById('numColumns').value);
+  const segmentWidths = document.getElementById('segmentWidths').value.split(',').map(n => parseInt(n.trim()));
+  const requiredSize = segmentWidths.reduce((acc, val) => acc + val, 0) + segmentWidths.length - 1;
+  if (numColumns < requiredSize) {
+    alert('Not enough columns to fit all segments with constraints.');
+    return;
+  }
+  gridSize = numColumns;
+  segments = [];
+  const gridContainer = document.getElementById('gridContainer');
+  const segmentContainer = document.getElementById('segmentContainer');
+
+  gridContainer.innerHTML = '';
+  segmentContainer.innerHTML = '';
+  gridContainer.style.width = `${grid_width * numColumns}px`;
+  segmentContainer.style.width = `${grid_width * numColumns}px`;
+
+  let currentPosition = 0;
+  for (let width of segmentWidths) {
+    const segment = createSegment(currentPosition, width);
+    let segment_obj = { element: segment, position: currentPosition, index: segments.length, width: width };
+    segments.push(segment_obj);
+    segment.onmousedown = (event) => {
+        draggingSegment = segment_obj;
+        draggingOffset = event.clientX - segment.getBoundingClientRect().left;
+        segment.style.opacity = '0.7';
+    };
+    segmentContainer.appendChild(segment);
+    currentPosition += width + 1;
+  }
+
+  for (let i = 0; i < numColumns; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    gridContainer.appendChild(cell);
+  }
+}
+
+function createSegment(position, width) {
+  const segment = document.createElement('div');
+  segment.className = 'segment';
+  segment.style.width = `${grid_width * width}px`;
+  segment.style.left = `${grid_width * position}px`;
+  return segment;
+}
+
+document.onmouseup = () => {
+  if (draggingSegment) {
+    draggingSegment.element.style.opacity = '1';
+    let curleft = parseInt(draggingSegment.element.style.left);
+    let newleft = Math.floor(curleft / grid_width) * 30;
+    draggingSegment.element.style.left = `${newleft}px`;
+    draggingSegment = null;
+  }
+};
+
+document.onmousemove = (event) => {
+  if (draggingSegment) {
+    let newLeft = Math.max(event.clientX - draggingOffset, 0);
+    if(draggingSegment.index > 0) {
+        let left_segment = segments[draggingSegment.index - 1];
+
+        newLeft = Math.max(newLeft, parseInt(left_segment.element.style.left) + left_segment.element.offsetWidth + grid_width)
+    }
+    newLeft = Math.min(newLeft, gridSize * grid_width - draggingSegment.element.offsetWidth);
+    if(draggingSegment.index < segments.length - 1) {
+        let right_segment = segments[draggingSegment.index + 1];
+
+        newLeft = Math.min(newLeft, 
+        parseInt(right_segment.element.style.left) - draggingSegment.element.offsetWidth - grid_width)
+    }
+    // newLeft = Math.max(...left_max); // Stay within grid on the left
+    // newLeft = Math.min(...right_min); // Stay within grid on the right
+    draggingSegment.element.style.left = `${newLeft}px`;
+    // Additional logic to snap to grid and respect constraints goes here
+  }
+};
+
+</script>
+</body>
+</html>
