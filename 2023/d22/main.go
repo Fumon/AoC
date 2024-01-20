@@ -14,6 +14,39 @@ func main() {
 }
 
 func Part1(lines <-chan string) int {
+	// Sort by Z
+	// Min heap over
+	// Max Position index over All brick positions for that brick
+	// Insert!
+	floor, resting_bricks := process_bricks(lines)
+
+	// Count
+	var output int
+	for _, resting_brick := range resting_bricks {
+		if resting_brick == floor {
+			continue
+		}
+		if len(resting_brick.HoldingUp) == 0 {
+			output += 1
+			continue
+		}
+
+		var invalid bool
+		for hu := range resting_brick.HoldingUp {
+			if len(hu.RestingOn) < 2 {
+				invalid = true
+				break
+			}
+		}
+		if !invalid {
+			output += 1
+		}
+	}
+
+	return output
+}
+
+func process_bricks(lines <-chan string) (*RestingBrick, map[*Brick]*RestingBrick) {
 	var bricks []Brick
 	var numbricks int
 	var max_x, max_y uint16
@@ -41,7 +74,6 @@ func Part1(lines <-chan string) int {
 		}
 	}
 
-	// Sort by Z
 	var per_brick_positions = make(map[*Brick]Brick_s_Positions, len(bricks))
 	for coord := range brick_columns {
 		brickstack := brick_columns[coord]
@@ -54,8 +86,6 @@ func Part1(lines <-chan string) int {
 		}
 	}
 
-	// Min heap over
-	// Max Position index over All brick positions for that brick
 	var position_heap = NewBrickPositionHeap(per_brick_positions)
 
 	var ordered_layers = map[int][]*Brick{}
@@ -136,7 +166,7 @@ func Part1(lines <-chan string) int {
 					if rb.Top > highest_top {
 						highest_top = rb.Top
 						resting_on = map[*RestingBrick]struct{}{rb: {}}
-					} else if rb.Top == highest_top{
+					} else if rb.Top == highest_top {
 						resting_on[rb] = struct{}{}
 					}
 				}
@@ -145,7 +175,7 @@ func Part1(lines <-chan string) int {
 				if !brickref.IsHori() {
 					ntop += brickref.Top() - brickref.Bottom()
 				}
-				// Insert!
+
 				nrestingbrick := &RestingBrick{
 					Top:       ntop,
 					RestingOn: resting_on,
@@ -169,34 +199,73 @@ func Part1(lines <-chan string) int {
 			}
 		}
 	}
-
-
-	// Count
-	var output int
-	for _, resting_brick := range resting_bricks {
-		if resting_brick == floor {
-			continue
-		}
-		if len(resting_brick.HoldingUp) == 0 {
-			output += 1
-			continue
-		}
-
-		var invalid bool
-		for hu := range resting_brick.HoldingUp {
-			if len(hu.RestingOn) < 2 {
-				invalid = true
-				break
-			}
-		}
-		if !invalid {
-			output += 1
-		}
-	}
-
-	return output
+	return floor, resting_bricks
 }
 
 func Part2(lines <-chan string) int {
-	return 0
+	floor, resting_bricks := process_bricks(lines)
+
+	// var sum_map = make(map[*RestingBrick]int, len(resting_bricks))
+	// var get_disintegrate_sum func(*RestingBrick) int
+	// get_disintegrate_sum = func(rb *RestingBrick) (total int) {
+	// 	if val, ok := sum_map[rb]; ok {
+	// 		return val
+	// 	}
+
+	// 	for oth := range rb.HoldingUp {
+	// 		if len(oth.RestingOn) == 1 {
+	// 			total += get_disintegrate_sum(oth) + 1
+	// 		} else {
+	// 			get_disintegrate_sum(oth)
+	// 		}
+	// 	}
+	// 	sum_map[rb] = total
+	// 	return
+	// }
+
+	// get_disintegrate_sum(floor)
+
+	// var total int
+	// for k, v := range sum_map {
+	// 	if k != floor {
+	// 		total += v
+	// 	}
+	// 	println(k, ": ", v)
+	// }
+
+	var total int
+	for _, rb := range resting_bricks {
+		if rb == floor {
+			continue
+		}
+		frontier := rb.HoldingUp
+		supports := map[*RestingBrick]struct{}{rb: {}}
+		var disintegrate_sum int
+		for len(frontier) > 0 {
+			next_frontier := map[*RestingBrick]struct{}{}
+		frontier_loop:
+			for f := range frontier {
+				if _, ok := supports[f]; ok {
+					continue frontier_loop
+				}
+				for support := range f.RestingOn {
+					if _, ok := supports[support]; !ok {
+						continue frontier_loop
+					}
+				}
+				disintegrate_sum += 1
+				// Add to supports
+				supports[f] = struct{}{}
+				// Add to frontier
+				for hu := range f.HoldingUp {
+					next_frontier[hu] = struct{}{}
+				}
+			}
+			frontier = next_frontier
+		}
+
+		total += disintegrate_sum
+	}
+
+	return total
 }
