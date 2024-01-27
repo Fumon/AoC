@@ -65,25 +65,26 @@ func Part1(lines <-chan string) int {
 		}
 	}
 
-	var last_most_popular [2]int
-	for j := 0; j < 3; j++ {
-		popularity_rankings := Rank_Edges(connections)
+	popularity_rankings := Rank_Edges(connections)
 
-		fmt.Println("===== Iteration", j , "=====")
-		most_popular := popularity_rankings[0]
-		indicies := most_popular.e.Recover_indicies()
+	for i, pop := range popularity_rankings {
+		indicies := pop.e.Recover_indicies()
+		firstname := parts[indicies[0]]
+		secondname := parts[indicies[1]]
+		fmt.Println(i, "-", firstname, "/", secondname, ":", pop.visits)
 		connections[indicies[0]][indicies[1]] = false
 		connections[indicies[1]][indicies[0]] = false
 
-		for i, pop := range popularity_rankings[:10] {
-			indicies := pop.e.Recover_indicies()
-			firstname := parts[indicies[0]]
-			secondname := parts[indicies[1]]
-			fmt.Println(i, "-", firstname, "/", secondname, ":", pop.visits)
+		neigh := FindNeighborhoods(indicies, connections)
+		if neigh[0] < partcount {
+			fmt.Println(neigh)
+			return neigh[0] * neigh[1]
 		}
-		last_most_popular = indicies
 	}
+	panic("No neighbourhood split")
+}
 
+func FindNeighborhoods(last_most_popular [2]int, connections [][]bool) []int {
 	var neighborhood_sizes []int
 	for i := 0; i < 2; i++ {
 		startpoint := last_most_popular[i]
@@ -105,10 +106,7 @@ func Part1(lines <-chan string) int {
 		}
 		neighborhood_sizes = append(neighborhood_sizes, len(neighborhood))
 	}
-
-	fmt.Println(neighborhood_sizes)
-
-	return neighborhood_sizes[0] * neighborhood_sizes[1]
+	return neighborhood_sizes
 }
 
 func Rank_Edges(connections [][]bool) []pop_entry {
